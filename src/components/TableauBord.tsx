@@ -261,14 +261,14 @@ export function TableauBord({ programme, onQuitter }: Props) {
       </div>
 
       {/* Barre de progression */}
-      <div className="card">
+      <div className="card p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="label !mb-0">Progression de la séance</span>
           <span className="font-bold text-chanv-terre">{progression}% · {fmt(ecoule)} écoulé</span>
         </div>
         <div className="w-full h-4 rounded-full bg-chanv-terre/10 overflow-hidden">
           <div
-            className="h-full bg-chanv-recolte transition-all duration-500"
+            className="h-full bg-chanv-beige transition-all duration-500"
             style={{ width: `${progression}%` }}
           />
         </div>
@@ -319,8 +319,8 @@ function MetricTile({
   value: React.ReactNode;
 }) {
   return (
-    <div className="section-card flex items-center gap-3">
-      <div className="text-chanv-recolte">{icon}</div>
+    <div className="section-card !p-4 flex items-center gap-3">
+      <div className="text-chanv-terre">{icon}</div>
       <div>
         <div className="text-[10px] uppercase tracking-widest text-chanv-terre/60">{label}</div>
         <div className="text-2xl font-black text-chanv-terre leading-tight">{value}</div>
