@@ -74,21 +74,26 @@ async function resolveCoachGandaAppId(
 ): Promise<{ appId: string; appName: string | null }> {
   const override = process.env.COACHGANDA_APP_ID;
   if (override) {
-    let appName: string | null = null;
-    try {
-      const snap = await db.collection("apps").doc(override).get();
-      appName = (snap.data()?.name as string) || null;
-    } catch {
-      /* ignore */
-    }
-    return { appId: override, appName };
+    // COACHGANDA_APP_ID défini → chemin rapide, pas de scan collection
+    return { appId: override, appName: null };
   }
-  const appsSnap = await db.collection("apps").get();
-  const match = appsSnap.docs.find((d) => {
-    const name = (d.data().name || "").toLowerCase().replace(/\s+/g, "");
-    return name.includes("coachgandalf") || (name.includes("coach") && name.includes("gandalf"));
-  });
-  return { appId: match?.id || "", appName: (match?.data().name as string) || null };
+  // Fallback : scan collection avec timeout 5s pour éviter le 502 Cloud Run
+  try {
+    const appsSnap = await Promise.race([
+      db.collection("apps").get(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("resolveCoachGandaAppId timeout")), 5000)
+      ),
+    ]);
+    const match = appsSnap.docs.find((d) => {
+      const name = (d.data().name || "").toLowerCase().replace(/\s+/g, "");
+      return name.includes("coachgandalf") || (name.includes("coach") && name.includes("gandalf"));
+    });
+    return { appId: match?.id || "", appName: (match?.data().name as string) || null };
+  } catch (e) {
+    console.error("[auth] resolveCoachGandaAppId failed", e);
+    return { appId: "", appName: null };
+  }
 }
 
 export interface RoleResolution {
