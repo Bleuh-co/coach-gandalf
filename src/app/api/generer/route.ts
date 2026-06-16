@@ -112,7 +112,13 @@ function validateProgramme(raw: any, p: GenerationParams): Programme {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
+  let session;
+  try {
+    session = await getSession();
+  } catch (e: any) {
+    console.error("[generer] getSession() failed — vérifier FIREBASE_SERVICE_ACCOUNT_JSON sur Cloud Run", e);
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
   if (!session) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   let params: GenerationParams;
