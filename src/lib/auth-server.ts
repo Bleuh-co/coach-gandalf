@@ -190,7 +190,7 @@ export async function getSession(): Promise<SessionContext | null> {
   const sessionCookie = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sessionCookie) return null;
   try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, false); // checkRevoked=false : évite l'appel réseau Google qui cause des 502 sur Cloud Run
     const email = decoded.email || null;
     if (!isEmailDomainAllowed(email)) return null;
 
