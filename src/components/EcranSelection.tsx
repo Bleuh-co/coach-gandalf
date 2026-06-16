@@ -80,7 +80,7 @@ export function EcranSelection({ onGenerer, loading, error }: Props) {
               onClick={() => setType(t.value)}
               className={`card !p-6 flex flex-col items-center gap-2 transition-all ${
                 type === t.value
-                  ? "ring-4 ring-chanv-recolte scale-[1.02]"
+                  ? "ring-4 ring-chanv-terre scale-[1.02]"
                   : "opacity-80 hover:opacity-100"
               }`}
             >
@@ -102,7 +102,7 @@ export function EcranSelection({ onGenerer, loading, error }: Props) {
               key={d}
               onClick={() => setDuree(d)}
               className={`card !py-6 flex flex-col items-center transition-all ${
-                duree === d ? "ring-4 ring-chanv-recolte scale-[1.02]" : "opacity-80 hover:opacity-100"
+                duree === d ? "ring-4 ring-chanv-terre scale-[1.02]" : "opacity-80 hover:opacity-100"
               }`}
             >
               <span className="text-4xl font-black text-chanv-terre tabular-nums">{d}</span>
@@ -113,7 +113,7 @@ export function EcranSelection({ onGenerer, loading, error }: Props) {
       </div>
 
       {/* Options secondaires repliables */}
-      <div className="card">
+      <div className="card p-6">
         <button
           className="flex items-center justify-between w-full"
           onClick={() => setOptionsOpen((o) => !o)}
@@ -184,7 +184,7 @@ export function EcranSelection({ onGenerer, loading, error }: Props) {
       </div>
 
       {error && (
-        <div className="section-card !border-red-300 !bg-red-50 text-red-700 text-sm font-semibold">
+        <div className="section-card !p-4 !border-red-300 text-red-700 text-sm font-semibold">
           ⚠️ {error}
         </div>
       )}
