@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { NavBar } from "@/components/NavBar";
 import { EcranSelection } from "@/components/EcranSelection";
 import { TableauBord } from "@/components/TableauBord";
 import type { GenerationParams, Programme } from "@/lib/types";
@@ -43,15 +42,12 @@ export default function GandalfPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <NavBar />
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        {etape === "selection" || !programme ? (
-          <EcranSelection onGenerer={generer} loading={loading} error={error} />
-        ) : (
-          <TableauBord programme={programme} onQuitter={quitter} />
-        )}
-      </main>
+    <div className="py-2">
+      {etape === "selection" || !programme ? (
+        <EcranSelection onGenerer={generer} loading={loading} error={error} />
+      ) : (
+        <TableauBord programme={programme} onQuitter={quitter} />
+      )}
     </div>
   );
 }
