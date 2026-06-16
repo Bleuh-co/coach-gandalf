@@ -1,0 +1,27 @@
+{
+  "name": "Coach Gandalf — Chanv",
+  "short_name": "Coach Gandalf",
+  "description": "Système intelligent d'entraînement — Groupe Chanv",
+  "start_url": "/gandalf",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#282828",
+  "theme_color": "#282828",
+  "categories": ["health", "fitness", "sports"],
+  "lang": "fr-CA",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
