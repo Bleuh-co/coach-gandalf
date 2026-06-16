@@ -134,9 +134,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 50_000); // 50s max (Cloud Run limit: 60s)
+
   try {
     const res = await fetch(ANTHROPIC_URL, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "content-type": "application/json",
         "x-api-key": apiKey,
@@ -148,6 +152,7 @@ export async function POST(req: NextRequest) {
         messages: [{ role: "user", content: buildPrompt(params) }],
       }),
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
       const txt = await res.text();
