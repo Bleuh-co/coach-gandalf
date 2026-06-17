@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, Fragment } from "react";
 import { Play, Pause, SkipForward, RotateCcw, RotateCw, ArrowRight, ArrowLeft, ArrowDown, ArrowUp } from "lucide-react";
 import type { Programme, ProgrammeExercice } from "@/lib/types";
 import { SpotifyWidget, type SpotifyHandle } from "./SpotifyWidget";
@@ -116,152 +116,145 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
   const enTransition = phase === "transition";
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* En-tête */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-3xl font-black text-chanv-terre uppercase tracking-tight">{programme.nom}</h2>
-          <p className="text-sm text-chanv-terre/60 uppercase tracking-widest">
-            Groupe · {N} stations · {programme.type}
-          </p>
-        </div>
-        <button className="btn-secondary" onClick={onQuitter}>← Nouvelle séance</button>
-      </div>
-
-      {/* Bandeau chrono + état */}
-      <div className={`card flex items-center justify-between gap-4 py-4 px-6 ${enTransition ? "!bg-chanv-beige" : ""}`}>
-        <div className="flex items-center gap-3">
-          <RotateCw size={28} className={`text-chanv-terre ${enTransition ? "animate-spin" : ""}`} />
-          <div>
-            <div className="text-xs uppercase tracking-widest text-chanv-terre/60">
-              {enTransition ? "Tournez dans le sens horaire !" : "Travail"}
-            </div>
-            <div className="text-lg font-bold text-chanv-terre">
-              Rotation {rotation}/{N} · Tour {round}/{totalRounds}
+    // Plein écran : on s'affranchit du conteneur max-w-5xl pour exploiter tout le 16:9.
+    <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 sm:px-6">
+      <div className="flex flex-col gap-3 min-h-[88vh]">
+        {/* Bandeau compact : titre + état + chrono */}
+        <div className={`card flex items-center justify-between gap-4 py-3 px-5 shrink-0 ${enTransition ? "!bg-chanv-beige" : ""}`}>
+          <div className="flex items-center gap-3 min-w-0">
+            <RotateCw size={32} className={`text-chanv-terre shrink-0 ${enTransition ? "animate-spin" : ""}`} />
+            <div className="min-w-0">
+              <h2 className="text-xl md:text-2xl font-black text-chanv-terre uppercase tracking-tight truncate">{programme.nom}</h2>
+              <div className="text-sm font-bold text-chanv-terre/70">
+                {enTransition ? "TOURNEZ — sens horaire !" : "Travail"} · Rotation {rotation}/{N} · Tour {round}/{totalRounds}
+              </div>
             </div>
           </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <span className="text-6xl md:text-7xl font-black tabular-nums text-chanv-terre">{fmt(restant)}</span>
+            <button className="btn-secondary !py-2 !px-4" onClick={onQuitter}>← Quitter</button>
+          </div>
         </div>
-        <span className="text-6xl font-black tabular-nums text-chanv-terre">{fmt(restant)}</span>
-      </div>
 
-      {/* Grille des stations en boucle */}
-      <div className="card p-4 flex flex-col gap-2">
-        {/* Rangée du haut : gauche → droite */}
-        <div className="flex items-stretch gap-2">
-          {topStations.map((s, i) => (
-            <div key={s.video_id + i} className="flex items-stretch gap-2 flex-1">
-              <StationCard station={s} number={i + 1} />
-              {i < topStations.length - 1 && <Sep dir="right" />}
-            </div>
-          ))}
+        {/* Grille des stations — remplit la hauteur restante */}
+        <div className="flex-1 flex flex-col gap-2 min-h-0">
+          {/* Rangée du haut : gauche → droite */}
+          <div className="flex-1 flex items-stretch gap-2 min-h-0">
+            {topStations.map((s, i) => (
+              <Fragment key={s.video_id + "-" + i}>
+                <StationCard station={s} number={i + 1} />
+                {i < topStations.length - 1 && <Sep dir="right" />}
+              </Fragment>
+            ))}
+            {bottomStations.length > 0 && (
+              <div className="flex items-center"><ArrowDown className="text-chanv-terre/50" size={28} /></div>
+            )}
+          </div>
+
+          {/* Repère central sens horaire */}
+          <div className="flex items-center justify-center shrink-0">
+            <span className={`badge-accent !text-sm inline-flex items-center gap-2 ${enTransition ? "animate-pulse" : ""}`}>
+              <RotateCw size={16} /> Sens horaire
+            </span>
+          </div>
+
+          {/* Rangée du bas : droite → gauche (numéros top+1..N) */}
           {bottomStations.length > 0 && (
-            <div className="flex items-center"><ArrowDown className="text-chanv-terre/60" /></div>
+            <div className="flex-1 flex items-stretch gap-2 min-h-0">
+              <div className="flex items-center"><ArrowUp className="text-chanv-terre/50" size={28} /></div>
+              {bottomStations.map((s, i) => {
+                const realNumber = N - i; // bottomStations[0] = station N
+                return (
+                  <Fragment key={s.video_id + "-" + i}>
+                    {i > 0 && <Sep dir="left" />}
+                    <StationCard station={s} number={realNumber} />
+                  </Fragment>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* Repère central */}
-        <div className="flex items-center justify-center py-1">
-          <span className={`badge-accent !text-sm inline-flex items-center gap-2 ${enTransition ? "animate-pulse" : ""}`}>
-            <RotateCw size={16} /> Sens horaire
-          </span>
+        {/* Barre de contrôle compacte */}
+        <div className="card flex items-center gap-3 py-3 px-5 shrink-0 flex-wrap">
+          {!running ? (
+            <button className="btn-primary !text-lg !px-8 !py-3" onClick={demarrer}>
+              <Play className="inline mr-2" size={22} /> {ecoule === 0 ? "Démarrer" : "Reprendre"}
+            </button>
+          ) : (
+            <button className="btn-primary !text-lg !px-8 !py-3" onClick={() => setRunning(false)}>
+              <Pause className="inline mr-2" size={22} /> Pause
+            </button>
+          )}
+          <button className="btn-secondary !px-5 !py-3" onClick={avancer} title="Forcer la rotation">
+            <SkipForward className="inline mr-2" size={20} /> Rotation
+          </button>
+          <button className="btn-secondary !px-5 !py-3" onClick={reset}>
+            <RotateCcw className="inline mr-2" size={20} /> Reset
+          </button>
+          <button
+            className={auto ? "badge-accent !text-sm !px-4 !py-3" : "badge-neutral !text-sm !px-4 !py-3"}
+            onClick={() => setAuto((a) => !a)}
+          >
+            {auto ? "Mode AUTO" : "Mode MANUEL"}
+          </button>
+
+          {/* Progression inline */}
+          <div className="flex-1 min-w-[160px] flex items-center gap-3">
+            <div className="flex-1 h-3 rounded-full bg-chanv-terre/10 overflow-hidden">
+              <div className="h-full bg-chanv-beige transition-all duration-500" style={{ width: `${progression}%` }} />
+            </div>
+            <span className="text-sm font-bold text-chanv-terre whitespace-nowrap">{progression}% · {fmt(ecoule)}</span>
+          </div>
+
+          <div className="w-full md:w-auto md:min-w-[280px]">
+            <SpotifyWidget ref={spotifyRef} />
+          </div>
         </div>
 
-        {/* Rangée du bas : droite → gauche (numéros top+1..N) */}
-        {bottomStations.length > 0 && (
-          <div className="flex items-stretch gap-2">
-            <div className="flex items-center"><ArrowUp className="text-chanv-terre/60" /></div>
-            {bottomStations.map((s, i) => {
-              const realNumber = N - i; // bottomStations[0] = station N
-              return (
-                <div key={s.video_id + i} className="flex items-stretch gap-2 flex-1">
-                  {i > 0 && <Sep dir="left" />}
-                  <StationCard station={s} number={realNumber} />
-                </div>
-              );
-            })}
+        {termine && (
+          <div className="card text-center py-8 shrink-0">
+            <div className="text-5xl mb-2">🏁</div>
+            <h3 className="text-2xl font-black text-chanv-terre">Circuit terminé !</h3>
+            <p className="text-chanv-terre/70 mt-1">{totalRounds} tours · {N} stations</p>
+            <button className="btn-primary mt-4" onClick={onQuitter}>Nouvelle séance</button>
           </div>
         )}
       </div>
-
-      {/* Contrôles */}
-      <div className="flex items-center justify-center gap-3 flex-wrap">
-        {!running ? (
-          <button className="btn-primary !text-lg !px-8 !py-4" onClick={demarrer}>
-            <Play className="inline mr-2" size={22} /> {ecoule === 0 ? "Démarrer" : "Reprendre"}
-          </button>
-        ) : (
-          <button className="btn-primary !text-lg !px-8 !py-4" onClick={() => setRunning(false)}>
-            <Pause className="inline mr-2" size={22} /> Pause
-          </button>
-        )}
-        <button className="btn-secondary !text-lg !px-6 !py-4" onClick={avancer} title="Forcer la rotation">
-          <SkipForward className="inline mr-2" size={22} /> Rotation
-        </button>
-        <button className="btn-secondary !text-lg !px-6 !py-4" onClick={reset}>
-          <RotateCcw className="inline mr-2" size={22} /> Reset
-        </button>
-        <button
-          className={auto ? "badge-accent !text-sm !px-4 !py-3" : "badge-neutral !text-sm !px-4 !py-3"}
-          onClick={() => setAuto((a) => !a)}
-        >
-          {auto ? "Mode AUTO" : "Mode MANUEL"}
-        </button>
-      </div>
-
-      {/* Progression */}
-      <div className="card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <span className="label !mb-0">Progression du circuit</span>
-          <span className="font-bold text-chanv-terre">{progression}% · {fmt(ecoule)} écoulé</span>
-        </div>
-        <div className="w-full h-4 rounded-full bg-chanv-terre/10 overflow-hidden">
-          <div className="h-full bg-chanv-beige transition-all duration-500" style={{ width: `${progression}%` }} />
-        </div>
-      </div>
-
-      {/* Spotify */}
-      <SpotifyWidget ref={spotifyRef} />
-
-      {termine && (
-        <div className="card text-center py-8">
-          <div className="text-5xl mb-2">🏁</div>
-          <h3 className="text-2xl font-black text-chanv-terre">Circuit terminé !</h3>
-          <p className="text-chanv-terre/70 mt-1">{totalRounds} tours · {N} stations</p>
-          <button className="btn-primary mt-4" onClick={onQuitter}>Nouvelle séance</button>
-        </div>
-      )}
     </div>
   );
 }
 
 function Sep({ dir }: { dir: "right" | "left" }) {
   return (
-    <div className="flex items-center text-chanv-terre/40">
-      {dir === "right" ? <ArrowRight size={18} /> : <ArrowLeft size={18} />}
+    <div className="flex items-center text-chanv-terre/40 shrink-0">
+      {dir === "right" ? <ArrowRight size={22} /> : <ArrowLeft size={22} />}
     </div>
   );
 }
 
 function StationCard({ station, number }: { station: ProgrammeExercice; number: number }) {
   return (
-    <div className="relative flex-1 min-w-0 rounded-chanv overflow-hidden bg-chanv-terre flex flex-col">
-      <div className="relative w-full aspect-video bg-chanv-terre flex items-center justify-center">
-        {station.video_url ? (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={station.video_url} className="w-full h-full object-cover" autoPlay loop muted playsInline preload="auto" />
-        ) : (
-          <span className="text-4xl">🏋️</span>
-        )}
-        <span className="absolute top-1 left-1 w-7 h-7 rounded-full bg-chanv-beige text-chanv-terre font-black text-sm flex items-center justify-center shadow">
-          {number}
-        </span>
-      </div>
-      <div className="p-2 bg-white">
-        <div className="font-bold text-chanv-terre text-sm leading-tight truncate" title={station.nom}>{station.nom}</div>
-        <div className="text-xs text-chanv-terre/60">
+    <div className="relative flex-1 basis-0 min-w-0 h-full rounded-chanv overflow-hidden bg-chanv-terre">
+      {station.video_url ? (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video src={station.video_url} className="absolute inset-0 w-full h-full object-cover" autoPlay loop muted playsInline preload="auto" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-5xl">🏋️</div>
+      )}
+
+      {/* Numéro */}
+      <span className="absolute top-2 left-2 w-9 h-9 rounded-full bg-chanv-beige text-chanv-terre font-black flex items-center justify-center shadow z-10">
+        {number}
+      </span>
+
+      {/* Infos en surimpression bas */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-8">
+        <div className="font-black text-white leading-tight line-clamp-2" title={station.nom}>{station.nom}</div>
+        <div className="text-xs text-white/80 mt-0.5">
           {station.valeur} {station.unite}
-          {station.charge_h != null && ` · ♂${station.charge_h}`}
-          {station.charge_f != null && ` ♀${station.charge_f}`}
+          {station.charge_h != null && ` · ♂ ${station.charge_h}`}
+          {station.charge_f != null && ` ♀ ${station.charge_f}`}
         </div>
       </div>
     </div>
