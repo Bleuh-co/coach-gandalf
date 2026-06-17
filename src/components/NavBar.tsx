@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useAuth } from "./AuthProvider";
 import { Sidebar } from "./Sidebar";
+import { FullscreenButton } from "./FullscreenButton";
 import { ROLE_LABELS } from "@/lib/types";
 
 export function NavBar() {
@@ -42,6 +43,7 @@ export function NavBar() {
               {ROLE_LABELS[session.role]}
             </div>
           </div>
+          <FullscreenButton />
           <Sidebar />
         </div>
       </div>
