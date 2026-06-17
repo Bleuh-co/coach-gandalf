@@ -42,6 +42,8 @@ function toExercice(id: string, data: FirebaseFirestore.DocumentData): Exercice 
     video_gs_path: typeof data.video_gs_path === "string" ? data.video_gs_path : null,
     veo_operation: typeof data.veo_operation === "string" ? data.veo_operation : null,
     video_error: typeof data.video_error === "string" ? data.video_error : null,
+    video_source: typeof data.video_source === "string" ? data.video_source : null,
+    source_ref: typeof data.source_ref === "string" ? data.source_ref : null,
     created_at: typeof data.created_at === "number" ? data.created_at : 0,
     updated_at: typeof data.updated_at === "number" ? data.updated_at : 0,
   };
@@ -92,6 +94,8 @@ export async function createExercice(input: CreateExerciceInput): Promise<Exerci
     video_gs_path: null,
     veo_operation: null,
     video_error: null,
+    video_source: null,
+    source_ref: null,
     created_at: ts,
     updated_at: ts,
   };
@@ -131,7 +135,16 @@ export async function deleteExercice(videoId: string): Promise<void> {
 export async function setVideoState(
   videoId: string,
   state: Partial<
-    Pick<Exercice, "video_url" | "video_status" | "video_gs_path" | "veo_operation" | "video_error">
+    Pick<
+      Exercice,
+      | "video_url"
+      | "video_status"
+      | "video_gs_path"
+      | "veo_operation"
+      | "video_error"
+      | "video_source"
+      | "source_ref"
+    >
   >
 ): Promise<void> {
   await adminDb()
@@ -183,6 +196,8 @@ export async function seedCatalogue(): Promise<string[]> {
       video_gs_path: null,
       veo_operation: null,
       video_error: null,
+      video_source: null,
+      source_ref: null,
       created_at: ts,
       updated_at: ts,
     };

@@ -1,6 +1,5 @@
 import "server-only";
-import { randomUUID } from "crypto";
-import { adminStorageBucket, storageBucketName } from "./firebase-admin";
+import { storeExerciceVideo, type StoredVideo } from "./video-storage";
 import type { Exercice } from "./types";
 
 /**
@@ -127,32 +126,11 @@ async function downloadVeoVideo(fileUri: string): Promise<Buffer> {
   return Buffer.from(arrayBuf);
 }
 
-export interface FinalizeResult {
-  videoUrl: string;
-  gsPath: string;
-}
-
 /**
  * Télécharge le clip Veo et l'upload dans Cloud Storage sous videos/{videoId}.mp4.
  * Renvoie une URL de téléchargement Firebase permanente (token).
  */
-export async function finalizeVideo(videoId: string, fileUri: string): Promise<FinalizeResult> {
+export async function finalizeVideo(videoId: string, fileUri: string): Promise<StoredVideo> {
   const buffer = await downloadVeoVideo(fileUri);
-  const bucket = adminStorageBucket();
-  const objectPath = `videos/${videoId}.mp4`;
-  const token = randomUUID();
-  const file = bucket.file(objectPath);
-  await file.save(buffer, {
-    resumable: false,
-    contentType: "video/mp4",
-    metadata: {
-      contentType: "video/mp4",
-      metadata: { firebaseStorageDownloadTokens: token },
-    },
-  });
-  const bucketName = storageBucketName() || bucket.name;
-  const videoUrl = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(
-    objectPath
-  )}?alt=media&token=${token}`;
-  return { videoUrl, gsPath: `gs://${bucketName}/${objectPath}` };
+  return storeExerciceVideo(videoId, buffer);
 }

@@ -89,6 +89,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       video_gs_path: gsPath,
       veo_operation: null,
       video_error: null,
+      video_source: "veo",
     });
     return NextResponse.json({ status: "ready", video_url: videoUrl });
   } catch (e) {

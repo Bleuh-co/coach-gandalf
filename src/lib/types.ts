@@ -42,6 +42,8 @@ export interface Exercice extends CatalogueExercice {
   video_gs_path: string | null; // chemin gs:// dans le bucket
   veo_operation: string | null; // nom de l'opération Veo en cours
   video_error: string | null; // dernier message d'erreur de génération
+  video_source: string | null; // origine de la vidéo : "veo" | "exercisedb" | "upload"
+  source_ref: string | null; // référence externe (ex. exerciseId ExerciseDB)
   created_at: number;
   updated_at: number;
 }

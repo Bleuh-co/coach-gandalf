@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Video, Save, Sparkles, Download } from "lucide-react";
+import { Loader2, Plus, Trash2, Video, Save, Sparkles, Download, Search } from "lucide-react";
 import type { Exercice, VideoStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<VideoStatus, string> = {
@@ -20,6 +20,12 @@ const STATUS_CLASS: Record<VideoStatus, string> = {
 };
 
 const POLL_INTERVAL_MS = 10_000;
+
+interface EdbCandidate {
+  exerciseId: string;
+  name: string;
+  imageUrl: string | null;
+}
 
 export function AdminConsole() {
   const [exercices, setExercices] = useState<Exercice[]>([]);
@@ -131,6 +137,37 @@ export function AdminConsole() {
       }
     },
     [patchLocal, startPolling]
+  );
+
+  const searchEdb = useCallback(async (query: string): Promise<EdbCandidate[]> => {
+    const res = await fetch(`/api/admin/exercisedb/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error || "Recherche ExerciseDB impossible.");
+      return [];
+    }
+    return data.results || [];
+  }, []);
+
+  const importEdb = useCallback(
+    async (id: string, exerciseId: string): Promise<boolean> => {
+      patchLocal(id, { video_status: "generating", video_error: null });
+      const res = await fetch(`/api/admin/exercices/${id}/edb`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ exerciseId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        patchLocal(id, { video_status: "error", video_error: data.error || null });
+        toast.error(data.error || "Import impossible.");
+        return false;
+      }
+      patchLocal(id, { video_status: "ready", video_url: data.video_url, video_source: "exercisedb" });
+      toast.success("Vidéo importée depuis ExerciseDB.");
+      return true;
+    },
+    [patchLocal]
   );
 
   const saveExercice = useCallback(async (id: string, patch: { nom: string; equipement: string; description_prompt: string }) => {
@@ -281,6 +318,8 @@ export function AdminConsole() {
             onSave={saveExercice}
             onDelete={removeExercice}
             onGenerate={generate}
+            onSearchEdb={searchEdb}
+            onImportEdb={importEdb}
           />
         ))}
       </div>
@@ -365,16 +404,41 @@ function ExerciceCard({
   onSave,
   onDelete,
   onGenerate,
+  onSearchEdb,
+  onImportEdb,
 }: {
   exercice: Exercice;
   onSave: (id: string, patch: { nom: string; equipement: string; description_prompt: string }) => Promise<void>;
   onDelete: (id: string, nom: string) => Promise<void>;
   onGenerate: (id: string) => Promise<void>;
+  onSearchEdb: (query: string) => Promise<EdbCandidate[]>;
+  onImportEdb: (id: string, exerciseId: string) => Promise<boolean>;
 }) {
   const [nom, setNom] = useState(exercice.nom);
   const [equipement, setEquipement] = useState(exercice.equipement);
   const [description, setDescription] = useState(exercice.description_prompt);
   const [saving, setSaving] = useState(false);
+
+  // Panneau d'import ExerciseDB
+  const [edbOpen, setEdbOpen] = useState(false);
+  const [edbQuery, setEdbQuery] = useState(exercice.nom);
+  const [edbResults, setEdbResults] = useState<EdbCandidate[]>([]);
+  const [edbSearching, setEdbSearching] = useState(false);
+  const [edbImporting, setEdbImporting] = useState<string | null>(null);
+
+  const runEdbSearch = async () => {
+    if (!edbQuery.trim()) return;
+    setEdbSearching(true);
+    setEdbResults(await onSearchEdb(edbQuery.trim()));
+    setEdbSearching(false);
+  };
+
+  const chooseEdb = async (exerciseId: string) => {
+    setEdbImporting(exerciseId);
+    const ok = await onImportEdb(exercice.video_id, exerciseId);
+    setEdbImporting(null);
+    if (ok) setEdbOpen(false);
+  };
 
   const dirty =
     nom !== exercice.nom ||
@@ -447,12 +511,63 @@ function ExerciceCard({
             {exercice.video_url ? "Régénérer la vidéo" : "Générer la vidéo"}
           </button>
           <button
+            className="btn-secondary !py-2 !px-4 !text-sm"
+            onClick={() => setEdbOpen((o) => !o)}
+            disabled={generating}
+          >
+            <Search className="inline mr-2" size={16} /> ExerciseDB
+          </button>
+          <button
             className="badge-neutral !bg-red-50 !text-red-700 !text-sm !px-4 !py-2"
             onClick={() => onDelete(exercice.video_id, exercice.nom)}
           >
             <Trash2 className="inline mr-1" size={16} /> Supprimer
           </button>
         </div>
+
+        {/* Panneau de curation ExerciseDB */}
+        {edbOpen && (
+          <div className="section-card !p-4 flex flex-col gap-3">
+            <span className="label !mb-0">Importer depuis ExerciseDB</span>
+            <div className="flex gap-2">
+              <input
+                className="input flex-1"
+                value={edbQuery}
+                onChange={(e) => setEdbQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runEdbSearch()}
+                placeholder="Rechercher un mouvement (ex : burpee)"
+              />
+              <button className="btn-primary !py-2 !px-4 !text-sm" onClick={runEdbSearch} disabled={edbSearching}>
+                {edbSearching ? <Loader2 className="inline animate-spin" size={16} /> : <Search size={16} />}
+              </button>
+            </div>
+            {edbResults.length === 0 && !edbSearching && (
+              <p className="text-xs text-chanv-terre/50">
+                ⚠️ La recherche est approximative — vérifie que le clip choisi correspond bien au mouvement.
+              </p>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto">
+              {edbResults.map((r) => (
+                <button
+                  key={r.exerciseId}
+                  onClick={() => chooseEdb(r.exerciseId)}
+                  disabled={edbImporting !== null}
+                  className="card !p-2 flex flex-col items-center gap-1 text-center hover:ring-2 hover:ring-chanv-terre disabled:opacity-50"
+                  title="Choisir et importer ce clip"
+                >
+                  {r.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={r.imageUrl} alt={r.name} className="w-full aspect-square object-cover rounded" loading="lazy" />
+                  ) : (
+                    <span className="text-3xl">🏋️</span>
+                  )}
+                  <span className="text-[11px] font-semibold text-chanv-terre leading-tight">{r.name}</span>
+                  {edbImporting === r.exerciseId && <Loader2 className="animate-spin" size={14} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
