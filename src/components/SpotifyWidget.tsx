@@ -1,36 +1,28 @@
 "use client";
 
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef, useCallback } from "react";
-import { Music, Play, Pause, SkipForward } from "lucide-react";
+import { Music, Play, Pause, SkipForward, Speaker } from "lucide-react";
 import { toast } from "sonner";
 
 /**
- * Widget Spotify (Web Playback SDK) — modèle « compte gym persistant ».
+ * Widget Spotify (Web Playback SDK + Spotify Connect) — compte gym persistant.
  *
- * Le compte Spotify (Premium) est connecté une fois via OAuth ; l'access token
- * est obtenu/rafraîchi côté serveur (/api/spotify/token). Le widget gère :
- *  - connexion (bouton → /api/spotify/login)
- *  - lecteur Web Playback (device "Coach Gandalf")
- *  - sélection de playlist + démarrage (+ playlist par défaut)
+ *  - connexion via OAuth serveur (/api/spotify/login, token rafraîchi serveur)
+ *  - lecteur Web Playback (device "Coach Gandalf") + sélection d'appareil
+ *    Spotify Connect (ex. Sonos) → transfert de la lecture
+ *  - sélecteur de playlist + playlist par défaut
  *  - play / pause / skip
- *  - ducking exposé via ref.duck() — baisse le volume ~20% pendant ~1,5s
+ *  - ducking via ref.duck() : baisse le volume pendant ~1,5s. Sur le lecteur
+ *    local via le SDK ; sur un appareil distant (Sonos) via l'API Connect.
  */
 
 export interface SpotifyHandle {
   duck: (durationMs?: number) => void;
 }
 
-interface TrackInfo {
-  name: string;
-  artist: string;
-  cover: string;
-}
-
-interface Playlist {
-  id: string;
-  name: string;
-  uri: string;
-}
+interface TrackInfo { name: string; artist: string; cover: string; }
+interface Playlist { id: string; name: string; uri: string; }
+interface Device { id: string; name: string; type: string; isActive: boolean; volume: number | null; }
 
 declare global {
   interface Window {
@@ -48,37 +40,21 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
   const [playing, setPlaying] = useState(false);
   const [track, setTrack] = useState<TrackInfo | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [activeDevice, setActiveDevice] = useState<string>("");
 
   const playerRef = useRef<any>(null);
-  const deviceIdRef = useRef<string>("");
+  const deviceIdRef = useRef<string>("");      // id du lecteur local (SDK)
+  const activeDeviceRef = useRef<string>("");   // id de l'appareil actif
+  const baseRemoteVolRef = useRef<number>(60);  // volume connu de l'appareil distant
   const tokenRef = useRef<{ value: string; exp: number } | null>(null);
   const defaultPlaylistRef = useRef<string | null>(null);
   const startedRef = useRef(false);
   const baseVolumeRef = useRef<number>(0.7);
   const duckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const duckRef = useRef<(ms?: number) => void>(() => {});
 
-  useImperativeHandle(ref, () => ({
-    duck: (durationMs = 1500) => {
-      const p = playerRef.current;
-      if (!p) return;
-      try {
-        p.setVolume(baseVolumeRef.current * 0.2);
-        if (duckTimer.current) clearTimeout(duckTimer.current);
-        duckTimer.current = setTimeout(() => {
-          const steps = 6;
-          let i = 0;
-          const target = baseVolumeRef.current;
-          const start = target * 0.2;
-          const iv = setInterval(() => {
-            i++;
-            const v = start + ((target - start) * i) / steps;
-            try { p.setVolume(v); } catch {}
-            if (i >= steps) clearInterval(iv);
-          }, 80);
-        }, durationMs);
-      } catch {}
-    },
-  }));
+  useImperativeHandle(ref, () => ({ duck: (ms) => duckRef.current(ms) }), []);
 
   /** Access token frais (mis en cache jusqu'à expiration). */
   const fetchAccessToken = useCallback(async (): Promise<string | null> => {
@@ -98,15 +74,33 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
       const r = await fetch(`${API}/me/playlists?limit=50`, { headers: { authorization: `Bearer ${t}` } });
       if (!r.ok) return;
       const d = await r.json();
-      setPlaylists(
-        (d.items || []).map((p: any) => ({ id: p.id, name: p.name, uri: p.uri }))
-      );
+      setPlaylists((d.items || []).map((p: any) => ({ id: p.id, name: p.name, uri: p.uri })));
+    } catch {}
+  }, [fetchAccessToken]);
+
+  const loadDevices = useCallback(async () => {
+    const t = await fetchAccessToken();
+    if (!t) return;
+    try {
+      const r = await fetch(`${API}/me/player/devices`, { headers: { authorization: `Bearer ${t}` } });
+      if (!r.ok) return;
+      const d = await r.json();
+      const list: Device[] = (d.devices || []).map((x: any) => ({
+        id: x.id, name: x.name, type: x.type, isActive: x.is_active, volume: x.volume_percent ?? null,
+      }));
+      setDevices(list);
+      const active = list.find((x) => x.isActive);
+      if (active) {
+        activeDeviceRef.current = active.id;
+        setActiveDevice(active.id);
+        if (typeof active.volume === "number") baseRemoteVolRef.current = active.volume;
+      }
     } catch {}
   }, [fetchAccessToken]);
 
   const startPlaylist = useCallback(async (contextUri: string) => {
     const t = await fetchAccessToken();
-    const deviceId = deviceIdRef.current;
+    const deviceId = activeDeviceRef.current || deviceIdRef.current;
     if (!t || !deviceId) return;
     try {
       await fetch(`${API}/me/player/play?device_id=${deviceId}`, {
@@ -117,14 +111,75 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
     } catch {}
   }, [fetchAccessToken]);
 
-  // État de connexion au montage + gestion du retour OAuth (?spotify=...)
+  /** Transfère la lecture vers l'appareil choisi (ex. Sonos). */
+  const selectDevice = useCallback(async (id: string) => {
+    const t = await fetchAccessToken();
+    if (!t || !id) return;
+    activeDeviceRef.current = id;
+    setActiveDevice(id);
+    try {
+      await fetch(`${API}/me/player`, {
+        method: "PUT",
+        headers: { authorization: `Bearer ${t}`, "content-type": "application/json" },
+        body: JSON.stringify({ device_ids: [id], play: true }),
+      });
+    } catch {}
+    setTimeout(loadDevices, 1500);
+  }, [fetchAccessToken, loadDevices]);
+
+  // (Re)définit la logique de ducking à chaque rendu (closures à jour).
+  useEffect(() => {
+    duckRef.current = (durationMs = 1500) => {
+      const onRemote = activeDeviceRef.current && activeDeviceRef.current !== deviceIdRef.current;
+
+      if (!onRemote) {
+        // Lecteur local (SDK) : baisse puis fondu de remontée.
+        const p = playerRef.current;
+        if (!p) return;
+        try {
+          p.setVolume(baseVolumeRef.current * 0.2);
+          if (duckTimer.current) clearTimeout(duckTimer.current);
+          duckTimer.current = setTimeout(() => {
+            const steps = 6;
+            let i = 0;
+            const target = baseVolumeRef.current;
+            const start = target * 0.2;
+            const iv = setInterval(() => {
+              i++;
+              try { p.setVolume(start + ((target - start) * i) / steps); } catch {}
+              if (i >= steps) clearInterval(iv);
+            }, 80);
+          }, durationMs);
+        } catch {}
+        return;
+      }
+
+      // Appareil distant (Sonos) : baisse via l'API Connect puis restaure.
+      (async () => {
+        const t = await fetchAccessToken();
+        if (!t) return;
+        const base = baseRemoteVolRef.current ?? 60;
+        const low = Math.max(5, Math.round(base * 0.2));
+        const setVol = (v: number) =>
+          fetch(`${API}/me/player/volume?volume_percent=${v}`, {
+            method: "PUT",
+            headers: { authorization: `Bearer ${t}` },
+          }).catch(() => {});
+        await setVol(low);
+        if (duckTimer.current) clearTimeout(duckTimer.current);
+        duckTimer.current = setTimeout(() => setVol(base), durationMs);
+      })();
+    };
+  });
+
+  // État de connexion + gestion du retour OAuth (?spotify=...)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sp = params.get("spotify");
     if (sp) {
       if (sp === "connected") toast.success("Spotify connecté.");
       else if (sp === "denied") toast.error("Connexion Spotify refusée.");
-      else if (sp) toast.error("Échec de la connexion Spotify.");
+      else toast.error("Échec de la connexion Spotify.");
       params.delete("spotify");
       const q = params.toString();
       window.history.replaceState({}, "", window.location.pathname + (q ? `?${q}` : ""));
@@ -162,8 +217,12 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
 
       player.addListener("ready", async ({ device_id }: { device_id: string }) => {
         deviceIdRef.current = device_id;
+        if (!activeDeviceRef.current) {
+          activeDeviceRef.current = device_id;
+          setActiveDevice(device_id);
+        }
         setReady(true);
-        await loadPlaylists();
+        await Promise.all([loadPlaylists(), loadDevices()]);
         if (defaultPlaylistRef.current && !startedRef.current) {
           startedRef.current = true;
           startPlaylist(defaultPlaylistRef.current);
@@ -206,7 +265,7 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
     return () => {
       try { playerRef.current?.disconnect(); } catch {}
     };
-  }, [phase, fetchAccessToken, loadPlaylists, startPlaylist]);
+  }, [phase, fetchAccessToken, loadPlaylists, loadDevices, startPlaylist]);
 
   const toggle = () => playerRef.current?.togglePlay().catch(() => {});
   const skip = () => playerRef.current?.nextTrack().catch(() => {});
@@ -272,6 +331,26 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
             <option key={p.id} value={p.uri}>{p.name}</option>
           ))}
         </select>
+      )}
+
+      {ready && (
+        <div className="flex items-center gap-2">
+          <Speaker size={16} className="text-chanv-terre/50 shrink-0" />
+          <select
+            className="input !py-2 text-sm flex-1"
+            value={activeDevice}
+            onFocus={loadDevices}
+            onChange={(e) => selectDevice(e.target.value)}
+            title="Haut-parleur (Spotify Connect)"
+          >
+            {devices.length === 0 && <option value={activeDevice}>Cet écran</option>}
+            {devices.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.id === deviceIdRef.current ? `${d.name} (écran)` : d.name}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
     </div>
   );
