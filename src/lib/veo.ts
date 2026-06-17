@@ -50,7 +50,6 @@ export async function startVeoGeneration(prompt: string): Promise<string> {
       parameters: {
         aspectRatio: "16:9",
         resolution: "720p",
-        personGeneration: "allow_adult",
       },
     }),
   });
