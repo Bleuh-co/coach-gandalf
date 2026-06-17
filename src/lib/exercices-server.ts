@@ -44,6 +44,7 @@ function toExercice(id: string, data: FirebaseFirestore.DocumentData): Exercice 
     video_error: typeof data.video_error === "string" ? data.video_error : null,
     video_source: typeof data.video_source === "string" ? data.video_source : null,
     source_ref: typeof data.source_ref === "string" ? data.source_ref : null,
+    edb_image_url: typeof data.edb_image_url === "string" ? data.edb_image_url : null,
     created_at: typeof data.created_at === "number" ? data.created_at : 0,
     updated_at: typeof data.updated_at === "number" ? data.updated_at : 0,
   };
@@ -96,6 +97,7 @@ export async function createExercice(input: CreateExerciceInput): Promise<Exerci
     video_error: null,
     video_source: null,
     source_ref: null,
+    edb_image_url: null,
     created_at: ts,
     updated_at: ts,
   };
@@ -170,6 +172,65 @@ export async function setStyleTemplate(template: string): Promise<void> {
 }
 
 // ----------------------------------------------------------------------
+// Import du catalogue ExerciseDB (métadonnées uniquement, vidéo à la demande)
+// ----------------------------------------------------------------------
+
+export interface EdbImportItem {
+  exerciseId: string;
+  name: string;
+  equipments: string[];
+  imageUrl: string | null;
+}
+
+/**
+ * Upsert des exercices ExerciseDB (doc id = exerciseId). N'écrase PAS l'état
+ * vidéo déjà hébergé d'un exercice existant (préserve video_url/status), met
+ * seulement à jour les métadonnées. Renvoie le nombre d'exercices traités.
+ */
+export async function importFromExerciseDb(items: EdbImportItem[]): Promise<number> {
+  const db = adminDb();
+  const ts = nowMs();
+  let count = 0;
+  // Firestore : 500 écritures max par batch.
+  for (let i = 0; i < items.length; i += 400) {
+    const chunk = items.slice(i, i + 400);
+    const refs = chunk.map((it) => db.collection(COLLECTION).doc(it.exerciseId));
+    const snaps = await db.getAll(...refs);
+    const batch = db.batch();
+    chunk.forEach((it, j) => {
+      const exists = snaps[j].exists;
+      const meta: Record<string, unknown> = {
+        nom: it.name,
+        equipement: (it.equipments[0] || "aucun").toLowerCase(),
+        edb_image_url: it.imageUrl,
+        source_ref: it.exerciseId,
+        updated_at: ts,
+      };
+      if (exists) {
+        // préserve la vidéo déjà hébergée
+        batch.set(refs[j], meta, { merge: true });
+      } else {
+        batch.set(refs[j], {
+          video_id: it.exerciseId,
+          description_prompt: "",
+          video_url: null,
+          video_status: "none",
+          video_gs_path: null,
+          veo_operation: null,
+          video_error: null,
+          video_source: null,
+          created_at: ts,
+          ...meta,
+        });
+      }
+      count++;
+    });
+    await batch.commit();
+  }
+  return count;
+}
+
+// ----------------------------------------------------------------------
 // Seeding initial depuis catalogue.ts
 // ----------------------------------------------------------------------
 
@@ -198,6 +259,7 @@ export async function seedCatalogue(): Promise<string[]> {
       video_error: null,
       video_source: null,
       source_ref: null,
+      edb_image_url: null,
       created_at: ts,
       updated_at: ts,
     };

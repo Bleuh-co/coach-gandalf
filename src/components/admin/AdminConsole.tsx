@@ -34,6 +34,8 @@ export function AdminConsole() {
   const [loading, setLoading] = useState(true);
   const [savingStyle, setSavingStyle] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [importingAll, setImportingAll] = useState(false);
+  const [filter, setFilter] = useState("");
 
   const pollers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
@@ -220,6 +222,23 @@ export function AdminConsole() {
     }
   }, [style]);
 
+  const runImportAll = useCallback(async () => {
+    if (!confirm("Importer tout le catalogue ExerciseDB (métadonnées) dans Firestore ? Les vidéos seront récupérées à la demande lors des générations.")) return;
+    setImportingAll(true);
+    try {
+      const res = await fetch("/api/admin/exercisedb/import-all", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Import impossible.");
+        return;
+      }
+      toast.success(`${data.imported} exercice(s) importé(s) depuis ExerciseDB.`);
+      await load();
+    } finally {
+      setImportingAll(false);
+    }
+  }, [load]);
+
   const runSeed = useCallback(async () => {
     setSeeding(true);
     try {
@@ -272,10 +291,16 @@ export function AdminConsole() {
             Catalogue & génération vidéo (Veo)
           </p>
         </div>
-        <button className="btn-secondary" onClick={runSeed} disabled={seeding}>
-          {seeding ? <Loader2 className="inline mr-2 animate-spin" size={18} /> : <Download className="inline mr-2" size={18} />}
-          Importer le catalogue de base
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <button className="btn-secondary" onClick={runSeed} disabled={seeding}>
+            {seeding ? <Loader2 className="inline mr-2 animate-spin" size={18} /> : <Download className="inline mr-2" size={18} />}
+            Catalogue de base
+          </button>
+          <button className="btn-primary" onClick={runImportAll} disabled={importingAll}>
+            {importingAll ? <Loader2 className="inline mr-2 animate-spin" size={18} /> : <Download className="inline mr-2" size={18} />}
+            Importer tout ExerciseDB
+          </button>
+        </div>
       </div>
 
       {/* Template de style partagé */}
@@ -304,25 +329,46 @@ export function AdminConsole() {
       <NouvelExercice onAdd={addExercice} />
 
       {/* Liste */}
-      <div className="flex flex-col gap-4">
-        <span className="label !mb-0">{exercices.length} exercice(s)</span>
-        {exercices.length === 0 && (
-          <div className="section-card text-chanv-terre/60">
-            Aucun exercice. Importe le catalogue de base ou ajoute-en un.
+      {(() => {
+        const f = filter.trim().toLowerCase();
+        const matched = f ? exercices.filter((e) => e.nom.toLowerCase().includes(f)) : exercices;
+        const VISIBLE_CAP = 60;
+        const visible = matched.slice(0, VISIBLE_CAP);
+        return (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="label !mb-0">{exercices.length} exercice(s)</span>
+              <input
+                className="input !w-64"
+                placeholder="Filtrer par nom…"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </div>
+            {exercices.length === 0 && (
+              <div className="section-card text-chanv-terre/60">
+                Aucun exercice. Importe le catalogue de base / ExerciseDB, ou ajoute-en un.
+              </div>
+            )}
+            {visible.map((ex) => (
+              <ExerciceCard
+                key={ex.video_id}
+                exercice={ex}
+                onSave={saveExercice}
+                onDelete={removeExercice}
+                onGenerate={generate}
+                onSearchEdb={searchEdb}
+                onImportEdb={importEdb}
+              />
+            ))}
+            {matched.length > VISIBLE_CAP && (
+              <p className="text-xs text-chanv-terre/50 text-center">
+                {matched.length - VISIBLE_CAP} exercice(s) supplémentaire(s) — affine le filtre pour les voir.
+              </p>
+            )}
           </div>
-        )}
-        {exercices.map((ex) => (
-          <ExerciceCard
-            key={ex.video_id}
-            exercice={ex}
-            onSave={saveExercice}
-            onDelete={removeExercice}
-            onGenerate={generate}
-            onSearchEdb={searchEdb}
-            onImportEdb={importEdb}
-          />
-        ))}
-      </div>
+        );
+      })()}
     </div>
   );
 }

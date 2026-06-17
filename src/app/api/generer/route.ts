@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { getCatalogue } from "@/lib/exercices-server";
+import { getCatalogue, setVideoState } from "@/lib/exercices-server";
+import { importExerciseDbVideo, getExerciseDbVideoUrl } from "@/lib/exercisedb";
 import type { Exercice, GenerationParams, Programme, ProgrammeExercice } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -8,6 +9,65 @@ export const dynamic = "force-dynamic";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-6";
+
+// Équipement « fonctionnel » pertinent pour Hyrox / CrossFit / HIIT / force.
+// Sert à réduire le catalogue (potentiellement 1000+ exercices) à un sous-ensemble
+// raisonnable injecté dans le prompt.
+const FUNCTIONAL_EQUIPMENT = new Set([
+  "body weight", "bodyweight", "aucun", "kettlebell", "dumbbell", "barbell",
+  "olympic barbell", "ez barbell", "trap bar", "medicine ball", "medecine_ball",
+  "power sled", "sled machine", "sled", "sandbag", "battling rope", "rope", "corde",
+  "resistance band", "band", "suspension", "box", "weighted", "skierg", "rameur",
+]);
+const PROMPT_CATALOGUE_CAP = 90;
+
+/** Restreint le catalogue aux exercices fonctionnels, plafonné pour le prompt. */
+function catalogueForPrompt(catalogue: Exercice[]): Exercice[] {
+  const fonctionnels = catalogue.filter((e) =>
+    FUNCTIONAL_EQUIPMENT.has((e.equipement || "").toLowerCase())
+  );
+  const base = fonctionnels.length >= 10 ? fonctionnels : catalogue;
+  return base.slice(0, PROMPT_CATALOGUE_CAP);
+}
+
+/**
+ * Ré-héberge à la demande les vidéos des exercices sélectionnés qui n'en ont pas
+ * encore (catalogue ExerciseDB importé en métadonnées). Met en cache dans Firestore.
+ * Repli sur l'URL CDN ExerciseDB si le ré-hébergement échoue.
+ */
+async function hostMissingVideos(programme: Programme, catalogue: Exercice[]): Promise<void> {
+  const byId = new Map(catalogue.map((c) => [c.video_id, c]));
+  await Promise.all(
+    programme.exercices.map(async (ex) => {
+      if (ex.video_url) return;
+      const cat = byId.get(ex.video_id);
+      if (cat?.video_url) {
+        ex.video_url = cat.video_url;
+        return;
+      }
+      if (!cat?.source_ref) return;
+      try {
+        const { videoUrl, gsPath } = await importExerciseDbVideo(ex.video_id, cat.source_ref);
+        await setVideoState(ex.video_id, {
+          video_status: "ready",
+          video_url: videoUrl,
+          video_gs_path: gsPath,
+          video_source: "exercisedb",
+          source_ref: cat.source_ref,
+          video_error: null,
+        });
+        ex.video_url = videoUrl;
+      } catch (e) {
+        console.warn("[generer] host video failed, fallback CDN", ex.video_id, (e as Error)?.message);
+        try {
+          ex.video_url = await getExerciseDbVideoUrl(cat.source_ref);
+        } catch {
+          /* laissera le fallback emoji côté UI */
+        }
+      }
+    })
+  );
+}
 
 /** Retire d'éventuelles balises markdown ```json autour du JSON. */
 function stripFences(text: string): string {
@@ -145,7 +205,7 @@ export async function POST(req: NextRequest) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 50_000); // 50s max (Cloud Run limit: 60s)
+  const timeout = setTimeout(() => controller.abort(), 40_000); // 40s : laisse ~20s pour l'hébergement des vidéos (limite Cloud Run ~60s)
 
   try {
     const res = await fetch(ANTHROPIC_URL, {
@@ -159,7 +219,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 2048,
-        messages: [{ role: "user", content: buildPrompt(params, catalogue) }],
+        messages: [{ role: "user", content: buildPrompt(params, catalogueForPrompt(catalogue)) }],
       }),
     });
     clearTimeout(timeout);
@@ -174,6 +234,7 @@ export async function POST(req: NextRequest) {
     const text = data?.content?.[0]?.text || "";
     const parsed = JSON.parse(stripFences(text));
     const programme = validateProgramme(parsed, params, catalogue);
+    await hostMissingVideos(programme, catalogue);
     return NextResponse.json({ programme });
   } catch (e: any) {
     console.error("[generer] failed", e);

@@ -44,6 +44,7 @@ export interface Exercice extends CatalogueExercice {
   video_error: string | null; // dernier message d'erreur de génération
   video_source: string | null; // origine de la vidéo : "veo" | "exercisedb" | "upload"
   source_ref: string | null; // référence externe (ex. exerciseId ExerciseDB)
+  edb_image_url: string | null; // vignette ExerciseDB (aperçu catalogue)
   created_at: number;
   updated_at: number;
 }
