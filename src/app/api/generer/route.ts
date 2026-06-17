@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { getCatalogue, setVideoState } from "@/lib/exercices-server";
-import { importExerciseDbVideo, getExerciseDbVideoUrl } from "@/lib/exercisedb";
+import { getCatalogue, setVideoState, importFromExerciseDb } from "@/lib/exercices-server";
+import { importExerciseDbVideo, getExerciseDbVideoUrl, fetchAllExerciseDb } from "@/lib/exercisedb";
 import type { Exercice, GenerationParams, Programme, ProgrammeExercice } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-6";
@@ -21,13 +22,47 @@ const FUNCTIONAL_EQUIPMENT = new Set([
 ]);
 const PROMPT_CATALOGUE_CAP = 90;
 
-/** Restreint le catalogue aux exercices fonctionnels, plafonné pour le prompt. */
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Restreint le catalogue aux exercices fonctionnels, mélange pour varier les
+ * séances, puis plafonne pour garder le prompt maîtrisé.
+ */
 function catalogueForPrompt(catalogue: Exercice[]): Exercice[] {
   const fonctionnels = catalogue.filter((e) =>
     FUNCTIONAL_EQUIPMENT.has((e.equipement || "").toLowerCase())
   );
   const base = fonctionnels.length >= 10 ? fonctionnels : catalogue;
-  return base.slice(0, PROMPT_CATALOGUE_CAP);
+  return shuffle(base).slice(0, PROMPT_CATALOGUE_CAP);
+}
+
+/**
+ * Catalogue de génération = exercices ExerciseDB uniquement (avec source_ref).
+ * Si vide, import automatique depuis ExerciseDB (une fois ; ensuite servi
+ * depuis Firestore). Le seed historique est volontairement exclu.
+ */
+async function getEdbCatalogue(): Promise<Exercice[]> {
+  let edb = (await getCatalogue()).filter((e) => e.source_ref);
+  if (edb.length < 30) {
+    const items = await fetchAllExerciseDb();
+    await importFromExerciseDb(
+      items.map((e) => ({
+        exerciseId: e.exerciseId,
+        name: e.name,
+        equipments: e.equipments,
+        imageUrl: e.imageUrl,
+      }))
+    );
+    edb = (await getCatalogue()).filter((e) => e.source_ref);
+  }
+  return edb;
 }
 
 /**
@@ -196,10 +231,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const catalogue = await getCatalogue();
+  let catalogue: Exercice[];
+  try {
+    catalogue = await getEdbCatalogue();
+  } catch (e) {
+    console.error("[generer] EDB catalogue indisponible", e);
+    return NextResponse.json(
+      { error: "Catalogue ExerciseDB indisponible. Vérifie EXERCISEDB_API_KEY." },
+      { status: 503 }
+    );
+  }
   if (catalogue.length === 0) {
     return NextResponse.json(
-      { error: "Catalogue d'exercices vide. Lance le seeding depuis l'administration." },
+      { error: "Aucun exercice ExerciseDB disponible." },
       { status: 503 }
     );
   }
