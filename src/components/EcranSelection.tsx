@@ -7,7 +7,10 @@ import type {
   WorkoutType,
   WorkoutFormat,
   WorkoutNiveau,
+  WorkoutMode,
 } from "@/lib/types";
+
+const STATIONS = [4, 6, 8, 10, 12];
 
 const TYPES: { value: WorkoutType; label: string; emoji: string }[] = [
   { value: "hyrox", label: "Hyrox", emoji: "🏃" },
@@ -40,6 +43,8 @@ interface Props {
 }
 
 export function EcranSelection({ onGenerer, loading, error }: Props) {
+  const [mode, setMode] = useState<WorkoutMode>("solo");
+  const [stations, setStations] = useState(8);
   const [type, setType] = useState<WorkoutType>("hyrox");
   const [duree, setDuree] = useState(45);
   const [niveau, setNiveau] = useState<WorkoutNiveau>("intermediaire");
@@ -51,10 +56,12 @@ export function EcranSelection({ onGenerer, loading, error }: Props) {
   const submit = () => {
     onGenerer({
       type,
+      mode,
+      stations: mode === "groupe" ? stations : undefined,
       competition: competition.trim() || null,
       duree_min: duree,
       niveau,
-      format,
+      format: mode === "groupe" ? "circuit" : format,
       participants,
     });
   };
@@ -69,6 +76,57 @@ export function EcranSelection({ onGenerer, loading, error }: Props) {
           Sélectionnez le type et la durée
         </p>
       </div>
+
+      {/* Choix Solo / Groupe */}
+      <div>
+        <span className="label">Mode de séance</span>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setMode("solo")}
+            className={`card !p-6 flex flex-col items-center gap-2 transition-all ${
+              mode === "solo" ? "ring-4 ring-chanv-terre scale-[1.02]" : "opacity-80 hover:opacity-100"
+            }`}
+          >
+            <span className="text-5xl">🏃</span>
+            <span className="font-bold text-chanv-terre uppercase tracking-wide text-sm">Seul</span>
+            <span className="text-xs text-chanv-terre/60 text-center">Tout le monde fait le même exercice, en séquence</span>
+          </button>
+          <button
+            onClick={() => setMode("groupe")}
+            className={`card !p-6 flex flex-col items-center gap-2 transition-all ${
+              mode === "groupe" ? "ring-4 ring-chanv-terre scale-[1.02]" : "opacity-80 hover:opacity-100"
+            }`}
+          >
+            <span className="text-5xl">🔄</span>
+            <span className="font-bold text-chanv-terre uppercase tracking-wide text-sm">En groupe</span>
+            <span className="text-xs text-chanv-terre/60 text-center">Circuit à stations, rotation dans le sens horaire</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Nombre de stations (mode groupe) */}
+      {mode === "groupe" && (
+        <div>
+          <span className="label">Nombre de stations</span>
+          <div className="grid grid-cols-5 gap-3">
+            {STATIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => setStations(s)}
+                className={`card !py-6 flex flex-col items-center transition-all ${
+                  stations === s ? "ring-4 ring-chanv-terre scale-[1.02]" : "opacity-80 hover:opacity-100"
+                }`}
+              >
+                <span className="text-4xl font-black text-chanv-terre tabular-nums">{s}</span>
+                <span className="text-xs uppercase tracking-widest text-chanv-terre/60">stations</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-chanv-terre/60 mt-2">
+            Une station = un exercice. Chacun démarre à une station et tourne au signal. Indépendant du nombre de participants.
+          </p>
+        </div>
+      )}
 
       {/* Tuiles type */}
       <div>

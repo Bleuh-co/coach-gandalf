@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EcranSelection } from "@/components/EcranSelection";
 import { TableauBord } from "@/components/TableauBord";
+import { TableauBordGroupe } from "@/components/TableauBordGroupe";
 import type { GenerationParams, Programme } from "@/lib/types";
 
 type Etape = "selection" | "execution";
@@ -45,6 +46,8 @@ export default function GandalfPage() {
     <div className="py-2">
       {etape === "selection" || !programme ? (
         <EcranSelection onGenerer={generer} loading={loading} error={error} />
+      ) : programme.mode === "groupe" ? (
+        <TableauBordGroupe programme={programme} onQuitter={quitter} />
       ) : (
         <TableauBord programme={programme} onQuitter={quitter} />
       )}

@@ -19,6 +19,9 @@ export const ROLE_LABELS: Record<Role, string> = {
 export type WorkoutType = "hyrox" | "crossfit" | "hiit" | "endurance" | "force";
 export type WorkoutFormat = "for_time" | "amrap" | "emom" | "circuit" | "tabata";
 export type WorkoutNiveau = "debutant" | "intermediaire" | "avance";
+// Mode de séance : "solo" (séquentiel, tout le monde ensemble) ou
+// "groupe" (circuit à stations, rotation synchronisée dans le sens horaire).
+export type WorkoutMode = "solo" | "groupe";
 export type TypeMesure = "distance" | "reps" | "temps" | "calories";
 export type Unite = "m" | "reps" | "s" | "cal" | "lbs";
 
@@ -68,6 +71,7 @@ export interface Programme {
   id: string;
   nom: string;
   type: WorkoutType;
+  mode: WorkoutMode; // "groupe" = exercices = stations, rounds = nb de tours
   competition: string | null;
   duree_min: number;
   format: WorkoutFormat;
@@ -78,6 +82,8 @@ export interface Programme {
 
 export interface GenerationParams {
   type: WorkoutType;
+  mode: WorkoutMode;
+  stations?: number; // nb de stations en mode groupe (4-12)
   competition?: string | null;
   duree_min: number;
   niveau: WorkoutNiveau;

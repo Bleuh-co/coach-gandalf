@@ -118,10 +118,18 @@ function stripFences(text: string): string {
 
 function buildPrompt(p: GenerationParams, catalogue: Exercice[]): string {
   const cat = catalogue.map((e) => `- ${e.nom} (video_id: "${e.video_id}", équipement: ${e.equipement})`).join("\n");
-  return `Tu es un coach expert en entraînement fonctionnel (Hyrox, CrossFit, HIIT). Génère un programme d'entraînement de groupe.
+  const groupe = p.mode === "groupe";
+  const n = Math.min(12, Math.max(4, p.stations || 8));
+
+  const contrainteStructure = groupe
+    ? `2. MODE GROUPE — CIRCUIT À STATIONS : génère EXACTEMENT ${n} exercices (= ${n} stations). Les participants tournent d'une station à l'autre en même temps, donc TOUTES les stations DOIVENT avoir la MÊME "duree_travail_s" (ex. 45) et le MÊME "duree_repos_s" (transition, ex. 15). "type_mesure" = "temps" pour chaque station. "rounds" = nombre de tours complets du circuit. Budget temps : ${n} × (duree_travail_s + duree_repos_s) × rounds ≈ ${p.duree_min} minutes (±10%).`
+    : `2. Respecte le budget temps : la somme (travail + repos + transitions ~10s) × rounds doit ≈ ${p.duree_min} minutes (±10%).`;
+
+  return `Tu es un coach expert en entraînement fonctionnel (Hyrox, CrossFit, HIIT). Génère un programme d'entraînement.
 
 PARAMÈTRES DEMANDÉS :
 - Type : ${p.type}
+- Mode : ${groupe ? `groupe (circuit de ${n} stations, rotation synchronisée)` : "solo (séquentiel)"}
 - Compétition cible : ${p.competition || "aucune"}
 - Durée totale : ${p.duree_min} minutes
 - Niveau : ${p.niveau}
@@ -133,7 +141,7 @@ ${cat}
 
 CONTRAINTES CRITIQUES :
 1. Utilise UNIQUEMENT les exercices du catalogue ci-dessus avec leur video_id EXACT. N'invente JAMAIS un exercice ou un video_id.
-2. Respecte le budget temps : la somme (travail + repos + transitions ~10s) × rounds doit ≈ ${p.duree_min} minutes (±10%).
+${contrainteStructure}
 3. Adapte les charges (charge_h pour hommes, charge_f pour femmes, en lbs) au niveau "${p.niveau}". Mets null si l'exercice ne nécessite pas de charge.
 4. Réponds UNIQUEMENT avec un objet JSON valide conforme au schéma. AUCUN texte, AUCUN markdown, AUCUNE explication.
 
@@ -195,16 +203,63 @@ function validateProgramme(raw: any, p: GenerationParams, catalogue: Exercice[])
     throw new Error("Aucun exercice valide généré (hors catalogue).");
   }
 
+  let finalExercices = exercices;
+
+  // Mode groupe : garantir EXACTEMENT N stations + durée de travail/repos uniforme.
+  if (p.mode === "groupe") {
+    const n = Math.min(12, Math.max(4, p.stations || 8));
+
+    if (finalExercices.length > n) {
+      finalExercices = finalExercices.slice(0, n);
+    } else if (finalExercices.length < n) {
+      // Complète avec des exercices du catalogue non déjà utilisés.
+      const used = new Set(finalExercices.map((e) => e.video_id));
+      for (const cat of catalogue) {
+        if (finalExercices.length >= n) break;
+        if (used.has(cat.video_id)) continue;
+        used.add(cat.video_id);
+        finalExercices.push({
+          ordre: finalExercices.length + 1,
+          nom: cat.nom,
+          video_id: cat.video_id,
+          video_url: cat.video_url,
+          type_mesure: "temps",
+          valeur: 0,
+          unite: "s",
+          charge_h: null,
+          charge_f: null,
+          duree_travail_s: null,
+          duree_repos_s: null,
+          consignes: "",
+        });
+      }
+    }
+
+    // Durée uniforme (rotation synchrone) : 1re valeur valide, sinon défauts.
+    const travail = finalExercices.find((e) => e.duree_travail_s && e.duree_travail_s > 0)?.duree_travail_s || 45;
+    const repos = finalExercices.find((e) => e.duree_repos_s && e.duree_repos_s > 0)?.duree_repos_s || 15;
+    finalExercices = finalExercices.map((e, i) => ({
+      ...e,
+      ordre: i + 1,
+      type_mesure: "temps",
+      valeur: travail,
+      unite: "s",
+      duree_travail_s: travail,
+      duree_repos_s: repos,
+    }));
+  }
+
   return {
     id: typeof raw?.id === "string" ? raw.id : `seance-${Date.now()}`,
     nom: typeof raw?.nom === "string" ? raw.nom : "Séance générée",
     type: p.type,
+    mode: p.mode,
     competition: p.competition || null,
     duree_min: p.duree_min,
     format: p.format,
     niveau: p.niveau,
     rounds: typeof raw?.rounds === "number" && raw.rounds > 0 ? raw.rounds : 1,
-    exercices,
+    exercices: finalExercices,
   };
 }
 
