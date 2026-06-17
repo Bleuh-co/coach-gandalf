@@ -92,10 +92,24 @@ function speakFallback(text: string) {
 
 let lastAnnounceAudio: HTMLAudioElement | null = null;
 
+// Le widget Spotify enregistre ici sa fonction de "ducking" (baisse de volume).
+// announce() la déclenche pour la DURÉE réelle de l'annonce, pour que la musique
+// reste baissée tant que la voix parle.
+let duckHandler: ((ms: number) => void) | null = null;
+export function setDuckHandler(fn: ((ms: number) => void) | null) {
+  duckHandler = fn;
+}
+
+/** Estimation de la durée de parole (repli quand la durée audio est inconnue). */
+function estimateSpeechMs(text: string): number {
+  return Math.min(9000, Math.max(2000, text.trim().length * 60 + 900));
+}
+
 /**
  * Annonce vocale. Utilise ElevenLabs (voix multilingue, /api/tts) pour bien
  * prononcer les noms d'exercices anglais, avec repli automatique sur la voix
- * du navigateur si l'API échoue ou n'est pas configurée.
+ * du navigateur si l'API échoue ou n'est pas configurée. Déclenche le ducking
+ * de la musique pour toute la durée de l'annonce.
  */
 export async function announce(text: string) {
   if (typeof window === "undefined" || !text.trim()) return;
@@ -112,6 +126,18 @@ export async function announce(text: string) {
         try { window.speechSynthesis?.cancel(); } catch {}
         const audio = new Audio(url);
         lastAnnounceAudio = audio;
+        // Duck immédiat (estimation) puis ajustement sur la durée réelle.
+        duckHandler?.(estimateSpeechMs(text));
+        audio.addEventListener(
+          "loadedmetadata",
+          () => {
+            const ms = isFinite(audio.duration) && audio.duration > 0
+              ? audio.duration * 1000 + 500
+              : estimateSpeechMs(text);
+            duckHandler?.(ms);
+          },
+          { once: true }
+        );
         await audio.play();
         return;
       }
@@ -119,5 +145,6 @@ export async function announce(text: string) {
   } catch {
     /* repli ci-dessous */
   }
+  duckHandler?.(estimateSpeechMs(text));
   speakFallback(text);
 }

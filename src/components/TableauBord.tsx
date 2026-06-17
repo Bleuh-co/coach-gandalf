@@ -5,7 +5,10 @@ import { Play, Pause, SkipForward, RotateCcw, Zap, Heart, Flame, Activity } from
 import type { Programme, ProgrammeExercice } from "@/lib/types";
 import { ExerciceVideo } from "./ExerciceVideo";
 import { SpotifyWidget, type SpotifyHandle } from "./SpotifyWidget";
+import { CountdownOverlay } from "./CountdownOverlay";
 import { playCue, announce, unlockAudio } from "@/lib/audio-cues";
+
+const PREP_S = 10; // compte à rebours « placez-vous » au démarrage
 
 type Phase = "travail" | "repos" | "transition";
 const TRANSITION_S = 10;
@@ -41,6 +44,7 @@ export function TableauBord({ programme, onQuitter }: Props) {
   const [restant, setRestant] = useState(() => dureeTravail(exercices[0]));
   const [ecoule, setEcoule] = useState(0);
   const [termine, setTermine] = useState(false);
+  const [prep, setPrep] = useState<number | null>(null); // compte à rebours de départ
 
   // Métriques simulées (MVP)
   const [calories, setCalories] = useState(0);
@@ -57,6 +61,11 @@ export function TableauBord({ programme, onQuitter }: Props) {
   // que le groupe prépare son équipement.
   const enPreparation = phase === "repos" || phase === "transition";
   const exAffiche = enPreparation && exSuivant ? exSuivant : exCourant;
+
+  // En pause ou en transition, on affiche la PROCHAINE consigne (préparation).
+  const enPause = !running && !termine && ecoule > 0 && prep === null;
+  const montrerProchaine = !!exSuivant && (enPreparation || enPause);
+  const exConsigne = montrerProchaine && exSuivant ? exSuivant : exCourant;
 
   const totalEtapes = totalRounds * exercices.length;
   const etapeCourante = (round - 1) * exercices.length + idx + 1;
@@ -110,9 +119,28 @@ export function TableauBord({ programme, onQuitter }: Props) {
     });
   }, [exCourant, exSuivant, idx, round, totalRounds, exercices, duck]);
 
+  // Compte à rebours « placez-vous » avant le démarrage réel
+  useEffect(() => {
+    if (prep === null || !running || termine) return;
+    const id = setInterval(() => {
+      setPrep((p) => {
+        if (p === null) return null;
+        const next = p - 1;
+        if (next <= 0) {
+          playCue("countdown");
+          announce(`C'est parti ! ${exCourant.nom}`);
+          return null;
+        }
+        if (next <= 3) playCue("countdown");
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [prep, running, termine, exCourant]);
+
   // Tick du chrono
   useEffect(() => {
-    if (!running || termine) {
+    if (!running || termine || prep !== null) {
       if (tickRef.current) clearInterval(tickRef.current);
       return;
     }
@@ -134,17 +162,22 @@ export function TableauBord({ programme, onQuitter }: Props) {
       }
     }, 1000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [running, termine, auto, avancer]);
+  }, [running, termine, auto, avancer, prep]);
 
   const demarrer = () => {
     unlockAudio();
     setRunning(true);
-    if (ecoule === 0) { playCue("countdown"); announce(`Début. ${exCourant.nom}`); }
+    if (ecoule === 0) {
+      // Premier départ : compte à rebours « placez-vous ».
+      setPrep(PREP_S);
+      announce("Placez-vous ! Départ dans 10 secondes.");
+    }
   };
 
   const reset = () => {
     setRunning(false);
     setTermine(false);
+    setPrep(null);
     setRound(1);
     setIdx(0);
     setPhase("travail");
@@ -160,6 +193,7 @@ export function TableauBord({ programme, onQuitter }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {prep !== null && <CountdownOverlay value={prep} />}
       {/* En-tête séance */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -240,24 +274,25 @@ export function TableauBord({ programme, onQuitter }: Props) {
             )}
           </div>
 
-          {/* Détail exercice courant */}
-          <div className="section-card">
-            <span className="label">Consigne actuelle</span>
+          {/* Détail consigne (courante, ou prochaine en pause/transition) */}
+          <div className={`section-card ${montrerProchaine ? "!border-chanv-beige" : ""}`}>
+            <span className="label">{montrerProchaine ? "Prochaine consigne" : "Consigne actuelle"}</span>
             <div className="text-lg font-bold text-chanv-terre">
-              {exCourant.valeur} {exCourant.unite}
+              {montrerProchaine && <span className="text-chanv-terre/60">{exConsigne.nom} · </span>}
+              {exConsigne.valeur} {exConsigne.unite}
             </div>
-            {(exCourant.charge_h || exCourant.charge_f) && (
+            {(exConsigne.charge_h || exConsigne.charge_f) && (
               <div className="flex gap-2 mt-2">
-                {exCourant.charge_h != null && (
-                  <span className="badge-neutral">♂ {exCourant.charge_h} lbs</span>
+                {exConsigne.charge_h != null && (
+                  <span className="badge-neutral">♂ {exConsigne.charge_h} lbs</span>
                 )}
-                {exCourant.charge_f != null && (
-                  <span className="badge-neutral">♀ {exCourant.charge_f} lbs</span>
+                {exConsigne.charge_f != null && (
+                  <span className="badge-neutral">♀ {exConsigne.charge_f} lbs</span>
                 )}
               </div>
             )}
-            {exCourant.consignes && (
-              <p className="text-sm text-chanv-terre/70 mt-2">{exCourant.consignes}</p>
+            {exConsigne.consignes && (
+              <p className="text-sm text-chanv-terre/70 mt-2">{exConsigne.consignes}</p>
             )}
           </div>
 

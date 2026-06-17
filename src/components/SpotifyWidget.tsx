@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef, useCallback } from "react";
 import { Music, Play, Pause, SkipForward, Speaker } from "lucide-react";
 import { toast } from "sonner";
+import { setDuckHandler } from "@/lib/audio-cues";
 
 /**
  * Widget Spotify (Web Playback SDK + Spotify Connect) — compte gym persistant.
@@ -55,6 +56,12 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
   const duckRef = useRef<(ms?: number) => void>(() => {});
 
   useImperativeHandle(ref, () => ({ duck: (ms) => duckRef.current(ms) }), []);
+
+  // Les annonces vocales (audio-cues) déclenchent le ducking pour leur durée réelle.
+  useEffect(() => {
+    setDuckHandler((ms) => duckRef.current(ms));
+    return () => setDuckHandler(null);
+  }, []);
 
   /** Access token frais (mis en cache jusqu'à expiration). */
   const fetchAccessToken = useCallback(async (): Promise<string | null> => {

@@ -4,10 +4,12 @@ import { useEffect, useRef, useState, useCallback, Fragment } from "react";
 import { Play, Pause, SkipForward, RotateCcw, RotateCw, ArrowRight, ArrowLeft, ArrowDown, ArrowUp } from "lucide-react";
 import type { Programme, ProgrammeExercice } from "@/lib/types";
 import { SpotifyWidget, type SpotifyHandle } from "./SpotifyWidget";
+import { CountdownOverlay } from "./CountdownOverlay";
 import { playCue, announce, unlockAudio } from "@/lib/audio-cues";
 
 const DEFAULT_TRAVAIL = 45;
 const DEFAULT_TRANSITION = 15;
+const PREP_S = 10; // compte à rebours « placez-vous » au démarrage
 
 function fmt(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
@@ -34,6 +36,7 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
   const [restant, setRestant] = useState(travail);
   const [ecoule, setEcoule] = useState(0);
   const [termine, setTermine] = useState(false);
+  const [prep, setPrep] = useState<number | null>(null);
 
   const spotifyRef = useRef<SpotifyHandle>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -68,8 +71,27 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
     });
   }, [intervalIdx, totalIntervals, repos, travail, duck]);
 
+  // Compte à rebours « placez-vous » avant le démarrage
   useEffect(() => {
-    if (!running || termine) {
+    if (prep === null || !running || termine) return;
+    const id = setInterval(() => {
+      setPrep((p) => {
+        if (p === null) return null;
+        const next = p - 1;
+        if (next <= 0) {
+          playCue("countdown");
+          announce("C'est parti !");
+          return null;
+        }
+        if (next <= 3) playCue("countdown");
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [prep, running, termine]);
+
+  useEffect(() => {
+    if (!running || termine || prep !== null) {
       if (tickRef.current) clearInterval(tickRef.current);
       return;
     }
@@ -87,20 +109,21 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
       }
     }, 1000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [running, termine, auto, avancer]);
+  }, [running, termine, auto, avancer, prep]);
 
   const demarrer = () => {
     unlockAudio();
     setRunning(true);
     if (ecoule === 0) {
-      playCue("countdown");
-      announce("Chacun à une station. C'est parti !");
+      setPrep(PREP_S);
+      announce("Chacun à une station ! Départ dans 10 secondes.");
     }
   };
 
   const reset = () => {
     setRunning(false);
     setTermine(false);
+    setPrep(null);
     setIntervalIdx(0);
     setPhase("travail");
     setRestant(travail);
@@ -118,6 +141,7 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
   return (
     // Plein écran : on s'affranchit du conteneur max-w-5xl pour exploiter tout le 16:9.
     <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 sm:px-6">
+      {prep !== null && <CountdownOverlay value={prep} label="Chacun à une station !" />}
       <div className="flex flex-col gap-3">
         {/* Bandeau compact : titre + état + chrono */}
         <div className={`card flex items-center justify-between gap-4 py-3 px-5 shrink-0 ${enTransition ? "!bg-chanv-beige" : ""}`}>
