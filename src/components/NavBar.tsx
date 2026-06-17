@@ -34,6 +34,11 @@ export function NavBar() {
           </p>
         </div>
 
+        <nav className="flex items-center gap-4 md:ml-6">
+          <a href="/gandalf" className="text-[11px] uppercase tracking-wider text-white/80 hover:text-white whitespace-nowrap">Séance IA</a>
+          <a href="/programmes" className="text-[11px] uppercase tracking-wider text-white/80 hover:text-white whitespace-nowrap">Programmes</a>
+        </nav>
+
         <div className="flex items-center gap-3 md:ml-auto absolute top-0 right-0 md:relative md:top-auto md:right-auto">
           <div className="text-right hidden sm:block">
             <div className="text-sm font-semibold text-white whitespace-nowrap">

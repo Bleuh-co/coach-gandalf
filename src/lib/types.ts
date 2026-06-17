@@ -65,6 +65,45 @@ export interface ProgrammeExercice {
   duree_travail_s: number | null;
   duree_repos_s: number | null;
   consignes: string;
+  manuel?: boolean; // true => pas d'auto-avance (reps/distance/cal), le coach passe via « Suivant »
+}
+
+// ======================================================================
+// Modèle de PROGRAMME éditable (bibliothèque partagée, créé par les coachs)
+// ======================================================================
+
+export type EffortType = "reps" | "amrap" | "temps" | "distance" | "calories";
+
+export interface ExerciceModele {
+  nom: string;
+  video_id: string | null; // null = exercice custom (sans vidéo)
+  effort: EffortType;
+  valeur: number; // reps | secondes (temps/amrap) | mètres | calories
+  charge_h: number | null;
+  charge_f: number | null;
+  repos_s: number; // repos après l'exercice
+  consignes: string;
+}
+
+export interface BlocModele {
+  nom: string;
+  rounds: number; // nombre de tours du bloc
+  repos_entre_rounds_s: number;
+  exercices: ExerciceModele[];
+}
+
+export interface ProgrammeModele {
+  id: string;
+  nom: string;
+  description: string;
+  type: WorkoutType;
+  mode: WorkoutMode;
+  niveau: WorkoutNiveau;
+  blocs: BlocModele[];
+  author_email: string;
+  author_name: string | null;
+  created_at: number;
+  updated_at: number;
 }
 
 export interface Programme {

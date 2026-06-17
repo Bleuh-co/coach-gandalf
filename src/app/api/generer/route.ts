@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { getCatalogue, setVideoState, importFromExerciseDb } from "@/lib/exercices-server";
-import { importExerciseDbVideo, getExerciseDbVideoUrl, fetchAllExerciseDb } from "@/lib/exercisedb";
+import { getCatalogue, importFromExerciseDb } from "@/lib/exercices-server";
+import { fetchAllExerciseDb } from "@/lib/exercisedb";
+import { hostMissingVideos } from "@/lib/video-resolve";
+import { COACHING_PRINCIPLES } from "@/lib/coaching";
 import type { Exercice, GenerationParams, Programme, ProgrammeExercice } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -65,45 +67,6 @@ async function getEdbCatalogue(): Promise<Exercice[]> {
   return edb;
 }
 
-/**
- * Ré-héberge à la demande les vidéos des exercices sélectionnés qui n'en ont pas
- * encore (catalogue ExerciseDB importé en métadonnées). Met en cache dans Firestore.
- * Repli sur l'URL CDN ExerciseDB si le ré-hébergement échoue.
- */
-async function hostMissingVideos(programme: Programme, catalogue: Exercice[]): Promise<void> {
-  const byId = new Map(catalogue.map((c) => [c.video_id, c]));
-  await Promise.all(
-    programme.exercices.map(async (ex) => {
-      if (ex.video_url) return;
-      const cat = byId.get(ex.video_id);
-      if (cat?.video_url) {
-        ex.video_url = cat.video_url;
-        return;
-      }
-      if (!cat?.source_ref) return;
-      try {
-        const { videoUrl, gsPath } = await importExerciseDbVideo(ex.video_id, cat.source_ref);
-        await setVideoState(ex.video_id, {
-          video_status: "ready",
-          video_url: videoUrl,
-          video_gs_path: gsPath,
-          video_source: "exercisedb",
-          source_ref: cat.source_ref,
-          video_error: null,
-        });
-        ex.video_url = videoUrl;
-      } catch (e) {
-        console.warn("[generer] host video failed, fallback CDN", ex.video_id, (e as Error)?.message);
-        try {
-          ex.video_url = await getExerciseDbVideoUrl(cat.source_ref);
-        } catch {
-          /* laissera le fallback emoji côté UI */
-        }
-      }
-    })
-  );
-}
-
 /** Retire d'éventuelles balises markdown ```json autour du JSON. */
 function stripFences(text: string): string {
   let t = text.trim();
@@ -126,6 +89,8 @@ function buildPrompt(p: GenerationParams, catalogue: Exercice[]): string {
     : `2. Respecte le budget temps : la somme (travail + repos + transitions ~10s) × rounds doit ≈ ${p.duree_min} minutes (±10%).`;
 
   return `Tu es un coach expert en entraînement fonctionnel (Hyrox, CrossFit, HIIT). Génère un programme d'entraînement.
+
+${COACHING_PRINCIPLES}
 
 PARAMÈTRES DEMANDÉS :
 - Type : ${p.type}

@@ -144,12 +144,14 @@ export function TableauBord({ programme, onQuitter }: Props) {
       if (tickRef.current) clearInterval(tickRef.current);
       return;
     }
+    // Exercice « manuel » (reps/distance/cal) en phase travail : pas d'auto-avance.
+    const manuelTravail = phase === "travail" && !!exCourant?.manuel;
     tickRef.current = setInterval(() => {
       setEcoule((e) => e + 1);
       // métriques simulées
       setCalories((c) => c + 0.18);
       setFc(() => 120 + Math.round(Math.sin(Date.now() / 4000) * 25 + Math.random() * 8));
-      if (auto) {
+      if (auto && !manuelTravail) {
         setRestant((r) => {
           if (r <= 1) {
             // déclenche l'avancement au prochain frame
@@ -162,7 +164,7 @@ export function TableauBord({ programme, onQuitter }: Props) {
       }
     }, 1000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  }, [running, termine, auto, avancer, prep]);
+  }, [running, termine, auto, avancer, prep, phase, exCourant]);
 
   const demarrer = () => {
     unlockAudio();
@@ -222,9 +224,20 @@ export function TableauBord({ programme, onQuitter }: Props) {
             upcoming={enPreparation && !!exSuivant}
           />
 
-          {/* Chrono géant */}
-          <div className="card flex items-center justify-center py-6">
-            <span className="text-8xl font-black tabular-nums text-chanv-terre">{fmt(restant)}</span>
+          {/* Chrono géant (ou cible si exercice manuel) */}
+          <div className="card flex flex-col items-center justify-center py-6">
+            {phase === "travail" && exCourant.manuel ? (
+              <>
+                <span className="text-7xl font-black tabular-nums text-chanv-terre">
+                  {exCourant.valeur} <span className="text-4xl">{exCourant.unite}</span>
+                </span>
+                <span className="text-sm text-chanv-terre/60 uppercase tracking-widest mt-1">
+                  Appuyez sur « Suivant » une fois terminé
+                </span>
+              </>
+            ) : (
+              <span className="text-8xl font-black tabular-nums text-chanv-terre">{fmt(restant)}</span>
+            )}
           </div>
 
           {/* Contrôles */}
