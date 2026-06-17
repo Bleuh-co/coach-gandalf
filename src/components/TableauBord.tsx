@@ -53,6 +53,11 @@ export function TableauBord({ programme, onQuitter }: Props) {
   const exCourant = exercices[idx];
   const exSuivant = exercices[idx + 1] || (round < totalRounds ? exercices[0] : null);
 
+  // Pendant le repos / la transition, on affiche le PROCHAIN exercice pour
+  // que le groupe prépare son équipement.
+  const enPreparation = phase === "repos" || phase === "transition";
+  const exAffiche = enPreparation && exSuivant ? exSuivant : exCourant;
+
   const totalEtapes = totalRounds * exercices.length;
   const etapeCourante = (round - 1) * exercices.length + idx + 1;
   const progression = Math.min(100, Math.round(((etapeCourante - 1) / totalEtapes) * 100));
@@ -177,9 +182,10 @@ export function TableauBord({ programme, onQuitter }: Props) {
           </div>
 
           <ExerciceVideo
-            videoUrl={exCourant.video_url}
+            videoUrl={exAffiche.video_url}
             preloadVideoUrl={exSuivant?.video_url}
-            label={exCourant.nom}
+            label={exAffiche.nom}
+            upcoming={enPreparation && !!exSuivant}
           />
 
           {/* Chrono géant */}

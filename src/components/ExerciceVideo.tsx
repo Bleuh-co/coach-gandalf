@@ -6,6 +6,8 @@ interface Props {
   videoUrl?: string | null;
   preloadVideoUrl?: string | null;
   label?: string;
+  /** Vrai quand on affiche le PROCHAIN exercice (repos/transition) pour préparer l'équipement. */
+  upcoming?: boolean;
 }
 
 /**
@@ -14,7 +16,7 @@ interface Props {
  * Précharge la vidéo du prochain exercice (élément caché).
  * Fallback visuel si aucune URL valide.
  */
-export function ExerciceVideo({ videoUrl, preloadVideoUrl, label }: Props) {
+export function ExerciceVideo({ videoUrl, preloadVideoUrl, label, upcoming }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const src = videoUrl || null;
   const preloadSrc = preloadVideoUrl || null;
@@ -29,6 +31,11 @@ export function ExerciceVideo({ videoUrl, preloadVideoUrl, label }: Props) {
 
   return (
     <div className="relative w-full aspect-video rounded-chanv overflow-hidden bg-chanv-terre flex items-center justify-center">
+      {upcoming && (
+        <div className="absolute top-0 left-0 right-0 z-10 bg-chanv-beige/95 text-chanv-terre text-center py-2 px-4 font-black uppercase tracking-widest text-sm md:text-base">
+          ⚙️ À préparer — prochain exercice
+        </div>
+      )}
       {src ? (
         <video
           ref={ref}
