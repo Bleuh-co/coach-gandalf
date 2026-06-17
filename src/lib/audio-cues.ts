@@ -78,8 +78,8 @@ export function playCue(type: CueType) {
   }
 }
 
-/** Annonce vocale TTS (Web Speech API). */
-export function announce(text: string) {
+/** Repli : voix du navigateur (Web Speech API). */
+function speakFallback(text: string) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   try {
     const u = new SpeechSynthesisUtterance(text);
@@ -88,4 +88,36 @@ export function announce(text: string) {
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch {}
+}
+
+let lastAnnounceAudio: HTMLAudioElement | null = null;
+
+/**
+ * Annonce vocale. Utilise ElevenLabs (voix multilingue, /api/tts) pour bien
+ * prononcer les noms d'exercices anglais, avec repli automatique sur la voix
+ * du navigateur si l'API échoue ou n'est pas configurée.
+ */
+export async function announce(text: string) {
+  if (typeof window === "undefined" || !text.trim()) return;
+  try {
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (res.ok) {
+      const { url } = await res.json();
+      if (url) {
+        try { lastAnnounceAudio?.pause(); } catch {}
+        try { window.speechSynthesis?.cancel(); } catch {}
+        const audio = new Audio(url);
+        lastAnnounceAudio = audio;
+        await audio.play();
+        return;
+      }
+    }
+  } catch {
+    /* repli ci-dessous */
+  }
+  speakFallback(text);
 }
