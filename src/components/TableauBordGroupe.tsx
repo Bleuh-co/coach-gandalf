@@ -118,7 +118,7 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
   return (
     // Plein écran : on s'affranchit du conteneur max-w-5xl pour exploiter tout le 16:9.
     <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 sm:px-6">
-      <div className="flex flex-col gap-3 min-h-[88vh]">
+      <div className="flex flex-col gap-3">
         {/* Bandeau compact : titre + état + chrono */}
         <div className={`card flex items-center justify-between gap-4 py-3 px-5 shrink-0 ${enTransition ? "!bg-chanv-beige" : ""}`}>
           <div className="flex items-center gap-3 min-w-0">
@@ -136,10 +136,10 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
           </div>
         </div>
 
-        {/* Grille des stations — remplit la hauteur restante */}
-        <div className="flex-1 flex flex-col gap-2 min-h-0">
+        {/* Grille des stations */}
+        <div className="flex flex-col gap-2">
           {/* Rangée du haut : gauche → droite */}
-          <div className="flex-1 flex items-stretch gap-2 min-h-0">
+          <div className="flex items-stretch gap-2">
             {topStations.map((s, i) => (
               <Fragment key={s.video_id + "-" + i}>
                 <StationCard station={s} number={i + 1} />
@@ -160,7 +160,7 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
 
           {/* Rangée du bas : droite → gauche (numéros top+1..N) */}
           {bottomStations.length > 0 && (
-            <div className="flex-1 flex items-stretch gap-2 min-h-0">
+            <div className="flex items-stretch gap-2">
               <div className="flex items-center"><ArrowUp className="text-chanv-terre/50" size={28} /></div>
               {bottomStations.map((s, i) => {
                 const realNumber = N - i; // bottomStations[0] = station N
@@ -235,7 +235,7 @@ function Sep({ dir }: { dir: "right" | "left" }) {
 
 function StationCard({ station, number }: { station: ProgrammeExercice; number: number }) {
   return (
-    <div className="relative flex-1 basis-0 min-w-0 h-full rounded-chanv overflow-hidden bg-chanv-terre">
+    <div className="relative flex-1 basis-0 min-w-0 h-[34vh] min-h-[200px] rounded-chanv overflow-hidden bg-chanv-terre">
       {station.video_url ? (
         // eslint-disable-next-line jsx-a11y/media-has-caption
         <video src={station.video_url} className="absolute inset-0 w-full h-full object-cover" autoPlay loop muted playsInline preload="auto" />
