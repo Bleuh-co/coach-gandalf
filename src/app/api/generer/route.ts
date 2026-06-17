@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { CATALOGUE, CATALOGUE_IDS } from "@/lib/catalogue";
-import type { GenerationParams, Programme, ProgrammeExercice } from "@/lib/types";
+import { getCatalogue } from "@/lib/exercices-server";
+import type { Exercice, GenerationParams, Programme, ProgrammeExercice } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,8 +21,8 @@ function stripFences(text: string): string {
   return t.trim();
 }
 
-function buildPrompt(p: GenerationParams): string {
-  const cat = CATALOGUE.map((e) => `- ${e.nom} (video_id: "${e.video_id}", équipement: ${e.equipement})`).join("\n");
+function buildPrompt(p: GenerationParams, catalogue: Exercice[]): string {
+  const cat = catalogue.map((e) => `- ${e.nom} (video_id: "${e.video_id}", équipement: ${e.equipement})`).join("\n");
   return `Tu es un coach expert en entraînement fonctionnel (Hyrox, CrossFit, HIIT). Génère un programme d'entraînement de groupe.
 
 PARAMÈTRES DEMANDÉS :
@@ -71,16 +71,18 @@ SCHÉMA JSON ATTENDU :
 }
 
 /** Validation défensive + nettoyage : ne garde que les exercices du catalogue. */
-function validateProgramme(raw: any, p: GenerationParams): Programme {
+function validateProgramme(raw: any, p: GenerationParams, catalogue: Exercice[]): Programme {
+  const byId = new Map(catalogue.map((c) => [c.video_id, c]));
   const exercicesRaw = Array.isArray(raw?.exercices) ? raw.exercices : [];
   const exercices: ProgrammeExercice[] = exercicesRaw
-    .filter((e: any) => e && CATALOGUE_IDS.has(e.video_id))
+    .filter((e: any) => e && byId.has(e.video_id))
     .map((e: any, i: number) => {
-      const cat = CATALOGUE.find((c) => c.video_id === e.video_id)!;
+      const cat = byId.get(e.video_id)!;
       return {
         ordre: typeof e.ordre === "number" ? e.ordre : i + 1,
         nom: cat.nom,
         video_id: e.video_id,
+        video_url: cat.video_url,
         type_mesure: ["distance", "reps", "temps", "calories"].includes(e.type_mesure) ? e.type_mesure : "reps",
         valeur: typeof e.valeur === "number" ? e.valeur : 0,
         unite: ["m", "reps", "s", "cal", "lbs"].includes(e.unite) ? e.unite : "reps",
@@ -134,6 +136,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const catalogue = await getCatalogue();
+  if (catalogue.length === 0) {
+    return NextResponse.json(
+      { error: "Catalogue d'exercices vide. Lance le seeding depuis l'administration." },
+      { status: 503 }
+    );
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 50_000); // 50s max (Cloud Run limit: 60s)
 
@@ -149,7 +159,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 2048,
-        messages: [{ role: "user", content: buildPrompt(params) }],
+        messages: [{ role: "user", content: buildPrompt(params, catalogue) }],
       }),
     });
     clearTimeout(timeout);
@@ -163,7 +173,7 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     const text = data?.content?.[0]?.text || "";
     const parsed = JSON.parse(stripFences(text));
-    const programme = validateProgramme(parsed, params);
+    const programme = validateProgramme(parsed, params, catalogue);
     return NextResponse.json({ programme });
   } catch (e: any) {
     console.error("[generer] failed", e);

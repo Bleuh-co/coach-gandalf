@@ -1,23 +1,23 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { videoPath } from "@/lib/catalogue";
 
 interface Props {
-  videoId: string;
-  preloadVideoId?: string | null;
+  videoUrl?: string | null;
+  preloadVideoUrl?: string | null;
   label?: string;
 }
 
 /**
  * Lecteur vidéo en boucle pour l'exercice courant.
+ * La vidéo provient de Firebase Storage (URL portée par le programme).
  * Précharge la vidéo du prochain exercice (élément caché).
- * Fallback visuel si aucun video_id valide.
+ * Fallback visuel si aucune URL valide.
  */
-export function ExerciceVideo({ videoId, preloadVideoId, label }: Props) {
+export function ExerciceVideo({ videoUrl, preloadVideoUrl, label }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
-  const src = videoPath(videoId);
-  const preloadSrc = preloadVideoId ? videoPath(preloadVideoId) : null;
+  const src = videoUrl || null;
+  const preloadSrc = preloadVideoUrl || null;
 
   useEffect(() => {
     const v = ref.current;

@@ -28,10 +28,29 @@ export interface CatalogueExercice {
   equipement: string;
 }
 
+// Statut de génération de la vidéo d'un exercice
+export type VideoStatus = "none" | "generating" | "ready" | "error";
+
+/**
+ * Exercice complet stocké dans Firestore (collection `exercices`).
+ * Étend le catalogue de base avec la description pour Veo et l'état vidéo.
+ */
+export interface Exercice extends CatalogueExercice {
+  description_prompt: string; // description de l'exercice injectée dans le prompt Veo
+  video_url: string | null; // URL Storage de la vidéo (null tant que non générée)
+  video_status: VideoStatus;
+  video_gs_path: string | null; // chemin gs:// dans le bucket
+  veo_operation: string | null; // nom de l'opération Veo en cours
+  video_error: string | null; // dernier message d'erreur de génération
+  created_at: number;
+  updated_at: number;
+}
+
 export interface ProgrammeExercice {
   ordre: number;
   nom: string;
   video_id: string;
+  video_url: string | null;
   type_mesure: TypeMesure;
   valeur: number;
   unite: Unite;

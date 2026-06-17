@@ -2,6 +2,7 @@ import "server-only";
 import { cert, getApps, initializeApp, applicationDefault, type App } from "firebase-admin/app";
 import { getAuth, type Auth as AdminAuth } from "firebase-admin/auth";
 import { getFirestore, type Firestore as AdminFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -63,4 +64,22 @@ export function adminDb(): AdminFirestore {
 
 export function getServiceAccountForGoogle() {
   return getServiceAccount();
+}
+
+/**
+ * Nom du bucket Cloud Storage. On réutilise NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+ * (déjà défini pour le SDK client). Variable serveur STORAGE_BUCKET prioritaire
+ * si fournie séparément.
+ */
+export function storageBucketName(): string | undefined {
+  return (
+    process.env.STORAGE_BUCKET ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
+    undefined
+  );
+}
+
+/** Bucket Cloud Storage par défaut de l'app admin. */
+export function adminStorageBucket() {
+  return getStorage(firebaseAdmin()).bucket(storageBucketName());
 }

@@ -225,4 +225,13 @@ export async function requireAdmin(): Promise<SessionContext> {
   return s;
 }
 
+/**
+ * Exige `superadmin` (accès au backend d'administration des exercices/vidéos).
+ */
+export async function requireSuperadmin(): Promise<SessionContext> {
+  const s = await requireSession();
+  if (s.role !== "superadmin") throw new Error("FORBIDDEN");
+  return s;
+}
+
 export { SESSION_COOKIE };

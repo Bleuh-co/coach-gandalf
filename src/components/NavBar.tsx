@@ -34,6 +34,15 @@ export function NavBar() {
         </div>
 
         <div className="flex items-center gap-3 md:ml-auto absolute top-0 right-0 md:relative md:top-auto md:right-auto">
+          {session.role === "superadmin" && (
+            <a
+              href="/admin"
+              className="text-[11px] uppercase tracking-wider text-white/80 hover:text-white border border-white/30 rounded-full px-3 py-1 whitespace-nowrap"
+              title="Administration des exercices"
+            >
+              ⚙️ Admin
+            </a>
+          )}
           <div className="text-right hidden sm:block">
             <div className="text-sm font-semibold text-white whitespace-nowrap">
               {session.displayName || session.email}

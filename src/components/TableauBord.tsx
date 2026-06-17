@@ -177,8 +177,8 @@ export function TableauBord({ programme, onQuitter }: Props) {
           </div>
 
           <ExerciceVideo
-            videoId={exCourant.video_id}
-            preloadVideoId={exSuivant?.video_id}
+            videoUrl={exCourant.video_url}
+            preloadVideoUrl={exSuivant?.video_url}
             label={exCourant.nom}
           />
 
