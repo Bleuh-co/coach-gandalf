@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,6 +18,7 @@ import {
 } from "firebase/auth";
 import { firebaseAuth, googleProvider } from "@/lib/firebase-client";
 import { isEmailDomainAllowed, allowedDomains } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import type { Role } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -43,6 +45,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [session, setSession] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const t = useT();
+  // Ref pour utiliser t() dans les callbacks sans re-créer les effets à
+  // chaque changement de langue.
+  const tRef = useRef(t);
+  tRef.current = t;
+
+  // Handoff SSO Gandalf (repli) : le hub colle #sso=<idToken Firebase> à
+  // l'URL de l'iframe. On l'échange contre la session serveur (cookie
+  // __session) — l'utilisateur connecté au hub entre sans écran de
+  // connexion. Le hash est retiré immédiatement (jamais gardé en historique).
+  // Le boot silencieux « cookie hub » (__gandalf_session), lui, passe par le
+  // GET /api/session initial : getSession() côté serveur accepte ce cookie
+  // via le SDK — aucun code client nécessaire.
+  const ssoExchange = useRef<Promise<void> | null>(null);
+  useEffect(() => {
+    const m = window.location.hash.match(/#sso=([\w\-.]+)/);
+    if (!m) return;
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    ssoExchange.current = (async () => {
+      try {
+        await fetch("/api/session", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ idToken: m[1] }),
+        });
+      } catch {
+        /* le login manuel reste disponible */
+      }
+    })();
+  }, []);
 
   const refreshSession = useCallback(async () => {
     try {
@@ -63,13 +95,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setFirebaseUser(u);
       if (!u) {
+        // Attendre l'éventuel échange #sso en cours, puis tenter le boot
+        // silencieux (cookie __session OU cookie hub __gandalf_session).
+        if (ssoExchange.current) await ssoExchange.current;
         await refreshSession();
         setLoading(false);
         return;
       }
       if (!isEmailDomainAllowed(u.email)) {
         await fbSignOut(auth);
-        toast.error(`Domaine non autorisé. Domaines acceptés: ${allowedDomains().join(", ")}`);
+        toast.error(tRef.current("login.domainDenied", { domains: allowedDomains().join(", ") }));
         setSession(null);
         setLoading(false);
         return;
@@ -90,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           toast.error(
             err.error
               ? `${err.error}${err.detail ? ` (${err.detail})` : ""}`
-              : `Session refusée (${res.status})`
+              : tRef.current("login.sessionRefused", { status: res.status })
           );
           await fbSignOut(auth);
           setSession(null);
@@ -111,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signInWithPopup(auth, googleProvider());
     } catch (e: any) {
       if (e?.code !== "auth/popup-closed-by-user") {
-        toast.error(e?.message || "Échec de la connexion");
+        toast.error(e?.message || tRef.current("login.failed"));
       }
     }
   }, []);

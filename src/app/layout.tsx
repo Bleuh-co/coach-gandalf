@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import { Toaster } from "sonner";
 import Script from "next/script";
+import { headers } from "next/headers";
+import { GandalfProvider } from "@bleuh-co/gandalf-sdk-next/client";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 
@@ -32,28 +34,44 @@ export const viewport = {
   viewportFit: "cover" as const,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Contexte d'embarquement Gandalf, posé par le middleware (x-gandalf-*).
+  const h = await headers();
+  const embedded = h.get("x-gandalf-embedded") === "1";
+  const lang = h.get("x-gandalf-lang") || "fr";
+  const theme = h.get("x-gandalf-theme") || "light";
   return (
-    <html lang="fr" className={`${inter.variable} ${outfit.variable}`}>
+    <html
+      lang={lang}
+      className={`${inter.variable} ${outfit.variable}${theme === "dark" ? " gandalf-dark" : ""}`}
+    >
       <body className="min-h-screen antialiased font-sans">
-        <AuthProvider>
-          {children}
-          <Toaster richColors position="top-right" />
-        </AuthProvider>
-        {/* Hub Widgets */}
-        <Script id="chanv-auth-bridge" strategy="beforeInteractive">{`
-          window.getAuthToken = async function() {
-            try {
-              const { getAuth } = await import('firebase/auth');
-              const auth = getAuth();
-              if (auth.currentUser) return await auth.currentUser.getIdToken();
-            } catch(e) {}
-            return null;
-          };
-        `}</Script>
-        <Script src={`${HUB_URL}/widgets/chatbot.js`} data-hub={HUB_URL} strategy="lazyOnload" />
-        <Script src={`${HUB_URL}/widgets/feedback.js`} data-hub={HUB_URL} strategy="lazyOnload" />
-        <Script src={`${HUB_URL}/js/gandalf-widget.js`} data-hub={HUB_URL} strategy="lazyOnload" />
+        <GandalfProvider embedded={embedded} lang={lang} theme={theme}>
+          <AuthProvider>
+            {children}
+            <Toaster richColors position="top-right" />
+          </AuthProvider>
+        </GandalfProvider>
+        {/* Widgets du Hub — UNIQUEMENT en standalone : en mode embarqué, le
+            shell Gandalf fournit déjà chatbot/feedback/sidebar (aucune
+            fonction redondante dans l'iframe). */}
+        {!embedded && (
+          <>
+            <Script id="chanv-auth-bridge" strategy="beforeInteractive">{`
+              window.getAuthToken = async function() {
+                try {
+                  const { getAuth } = await import('firebase/auth');
+                  const auth = getAuth();
+                  if (auth.currentUser) return await auth.currentUser.getIdToken();
+                } catch(e) {}
+                return null;
+              };
+            `}</Script>
+            <Script src={`${HUB_URL}/widgets/chatbot.js`} data-hub={HUB_URL} strategy="lazyOnload" />
+            <Script src={`${HUB_URL}/widgets/feedback.js`} data-hub={HUB_URL} strategy="lazyOnload" />
+            <Script src={`${HUB_URL}/js/gandalf-widget.js`} data-hub={HUB_URL} strategy="lazyOnload" />
+          </>
+        )}
         {/* Service worker — rend la PWA installable */}
         <Script id="register-sw" strategy="afterInteractive">{`
           if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {

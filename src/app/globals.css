@@ -329,3 +329,113 @@ h4 {
     gap: 3px;
   }
 }
+
+/* ============================================================
+   MODE SOMBRE GANDALF — html.gandalf-dark (posé par le SDK/hub)
+   APPEND-ONLY. Palette dark du hub : fond #201d19, panneaux #2b2823,
+   texte rgba(255,255,255,.92), lignes rgba(221,203,164,.14),
+   accent or #DDCBA4. Modèle elearning / xero_photo_achat.
+   ============================================================ */
+
+html.gandalf-dark {
+  /* NB : --chanv-blanc et --chanv-terre ne sont PAS inversés globalement —
+     le header (fond terre, texte blanc) doit rester identique. Surcharges
+     ciblées classe par classe ci-dessous. */
+  --chanv-fibre: rgba(221, 203, 164, 0.14);
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-bold: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --color-secondary-bg: rgba(255, 255, 255, 0.08);
+  --color-secondary-text: rgba(255, 255, 255, 0.8);
+  --color-secondary-hover: rgba(255, 255, 255, 0.14);
+  --color-placeholder: rgba(255, 255, 255, 0.35);
+  --color-disabled: rgba(255, 255, 255, 0.4);
+}
+
+html.gandalf-dark,
+html.gandalf-dark body {
+  background-color: #201d19;
+  background-image: radial-gradient(rgba(221, 203, 164, 0.07) 1px, transparent 1px);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* --- Surfaces --- */
+html.gandalf-dark .card,
+html.gandalf-dark .section-card {
+  background: #2b2823;
+  border-color: rgba(221, 203, 164, 0.14);
+}
+html.gandalf-dark .chanv-header::after {
+  background: #201d19;
+}
+html.gandalf-dark .input {
+  background: #201d19;
+  border-color: rgba(221, 203, 164, 0.2);
+  color: rgba(255, 255, 255, 0.92);
+}
+html.gandalf-dark .input:disabled {
+  background: rgba(221, 203, 164, 0.08);
+}
+
+/* --- Textes secondaires --- */
+html.gandalf-dark .label {
+  color: rgba(255, 255, 255, 0.6);
+}
+html.gandalf-dark .text-chanv-terre {
+  color: #ddcba4;
+}
+html.gandalf-dark .section-num {
+  background: rgba(221, 203, 164, 0.15);
+  color: #ddcba4;
+}
+
+/* --- Boutons --- */
+html.gandalf-dark .btn-primary {
+  background: #ddcba4;
+  color: #201d19;
+}
+html.gandalf-dark .btn-ghost {
+  color: rgba(255, 255, 255, 0.75);
+}
+html.gandalf-dark .btn-ghost:hover:not(:disabled) {
+  background: rgba(221, 203, 164, 0.12);
+}
+
+/* --- Badges --- */
+html.gandalf-dark .badge-neutral {
+  background: rgba(221, 203, 164, 0.15);
+  color: #ddcba4;
+}
+html.gandalf-dark .badge-accent {
+  background: rgba(221, 203, 164, 0.25);
+  color: #ddcba4;
+}
+
+/* --- Fonds clairs utilitaires (littéraux Tailwind compilés) --- */
+html.gandalf-dark .bg-white {
+  background-color: #2b2823;
+}
+html.gandalf-dark .bg-chanv-fibre\/30,
+html.gandalf-dark .bg-chanv-fibre\/50,
+html.gandalf-dark .bg-chanv-fibre\/60 {
+  background-color: rgba(221, 203, 164, 0.1);
+}
+html.gandalf-dark .border-chanv-fibre {
+  border-color: rgba(221, 203, 164, 0.14);
+}
+html.gandalf-dark .divide-chanv-fibre > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(221, 203, 164, 0.14);
+}
+
+/* --- Nav d'embed (#gandalf-embed-nav : barre parchemin + pastilles) --- */
+html.gandalf-dark .bg-\[\#F4EFE3\] {
+  background-color: #201d19;
+}
+html.gandalf-dark .text-black\/60 {
+  color: rgba(255, 255, 255, 0.6);
+}
+html.gandalf-dark .border-black\/10 {
+  border-color: rgba(221, 203, 164, 0.18);
+}
+html.gandalf-dark .hover\:text-\[\#282828\]:hover {
+  color: rgba(255, 255, 255, 0.92);
+}

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { gandalfMiddleware } from "@bleuh-co/gandalf-sdk-next/middleware";
 
 /**
+ * Middleware composé (modèle xero_photo_achat) :
+ *  - /api/*        → rate limiter in-memory (inchangé)
+ *  - autres routes → contrat d'embarquement Gandalf (embed + langue + thème
+ *                    + frame-ancestors du hub)
+ *
  * In-memory rate limiter for API routes.
  * 120 requests per minute per IP — prevents abuse and runaway read storms.
  *
@@ -29,44 +35,45 @@ function getClientIp(req: NextRequest): string {
 }
 
 export function middleware(req: NextRequest) {
-  // Only rate-limit API routes
-  if (!req.nextUrl.pathname.startsWith("/api/")) {
-    return NextResponse.next();
+  // Routes API : rate-limiting inchangé.
+  if (req.nextUrl.pathname.startsWith("/api/")) {
+    const ip = getClientIp(req);
+    const now = Date.now();
+    const entry = hits.get(ip);
+
+    if (!entry || now > entry.resetAt) {
+      hits.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+      return NextResponse.next();
+    }
+
+    entry.count++;
+
+    if (entry.count > MAX_REQUESTS) {
+      return NextResponse.json(
+        { error: "Trop de requêtes, réessayez dans une minute." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((entry.resetAt - now) / 1000)),
+            "X-RateLimit-Limit": String(MAX_REQUESTS),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(Math.ceil(entry.resetAt / 1000)),
+          },
+        }
+      );
+    }
+
+    const res = NextResponse.next();
+    res.headers.set("X-RateLimit-Limit", String(MAX_REQUESTS));
+    res.headers.set("X-RateLimit-Remaining", String(MAX_REQUESTS - entry.count));
+    res.headers.set("X-RateLimit-Reset", String(Math.ceil(entry.resetAt / 1000)));
+    return res;
   }
 
-  const ip = getClientIp(req);
-  const now = Date.now();
-  const entry = hits.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return NextResponse.next();
-  }
-
-  entry.count++;
-
-  if (entry.count > MAX_REQUESTS) {
-    return NextResponse.json(
-      { error: "Trop de requêtes, réessayez dans une minute." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(Math.ceil((entry.resetAt - now) / 1000)),
-          "X-RateLimit-Limit": String(MAX_REQUESTS),
-          "X-RateLimit-Remaining": "0",
-          "X-RateLimit-Reset": String(Math.ceil(entry.resetAt / 1000)),
-        },
-      }
-    );
-  }
-
-  const res = NextResponse.next();
-  res.headers.set("X-RateLimit-Limit", String(MAX_REQUESTS));
-  res.headers.set("X-RateLimit-Remaining", String(MAX_REQUESTS - entry.count));
-  res.headers.set("X-RateLimit-Reset", String(Math.ceil(entry.resetAt / 1000)));
-  return res;
+  // Autres routes (pages) : contrat d'embarquement Gandalf (embed + langue).
+  return gandalfMiddleware(req);
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/((?!_next|favicon.ico|favicon.svg|sw.js|manifest.webmanifest|logo-groupe-chanv.svg|api/health).*)"],
 };

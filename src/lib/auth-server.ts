@@ -1,7 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
 import { adminAuth, adminDb } from "./firebase-admin";
-import { isEmailDomainAllowed } from "./utils";
 import type { Role } from "./types";
 
 const SESSION_COOKIE = "__session";
@@ -186,26 +184,30 @@ export async function resolveRole(email: string): Promise<Role> {
 }
 
 export async function getSession(): Promise<SessionContext | null> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!sessionCookie) return null;
+  // Garde d'accès via le SDK Gandalf : cookie __session de l'app OU cookie de
+  // session partagé du hub (__gandalf_session) OU Bearer, check d'audience,
+  // deny-by-default. La résolution de rôle reste celle de l'app (domaine
+  // autorisé + resolveRole) via coachGandalfRoleMapper — zéro régression.
+  // Import dynamique pour éviter le cycle auth-server ↔ gandalf.
+  const { verifySso, GandalfDenied } = await import("@bleuh-co/gandalf-sdk-next/server");
+  const { gandalfAdmin, coachGandalfRoleMapper } = await import("./gandalf");
   try {
-    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
-    const email = decoded.email || null;
-    if (!isEmailDomainAllowed(email)) return null;
-
-    const role = await resolveRole(email!);
-    if (role === "blocked") return null;
-
+    const s = await verifySso(gandalfAdmin, {
+      cookieName: SESSION_COOKIE,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      noAccessRoles: ["blocked"],
+      roleMapper: coachGandalfRoleMapper,
+    });
     return {
-      uid: decoded.uid,
-      email: email!,
-      displayName: (decoded.name as string) || null,
-      photoURL: (decoded.picture as string) || null,
-      role,
+      uid: s.user.uid,
+      email: s.user.email,
+      displayName: s.user.name,
+      photoURL: s.user.picture,
+      role: s.role as Role,
     };
   } catch (e) {
-    console.warn("[auth] invalid session", e);
+    if (e instanceof GandalfDenied) return null;
+    console.warn("[auth] getSession error", e);
     return null;
   }
 }
