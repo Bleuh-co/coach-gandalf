@@ -7,6 +7,7 @@ import { ExerciceVideo } from "./ExerciceVideo";
 import { SpotifyWidget, type SpotifyHandle } from "./SpotifyWidget";
 import { CountdownOverlay } from "./CountdownOverlay";
 import { playCue, announce, unlockAudio } from "@/lib/audio-cues";
+import { useT } from "@/lib/i18n";
 
 const PREP_S = 10; // compte à rebours « placez-vous » au démarrage
 
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export function TableauBord({ programme, onQuitter }: Props) {
+  const t = useT();
   const exercices = programme.exercices;
   const totalRounds = programme.rounds;
 
@@ -189,7 +191,8 @@ export function TableauBord({ programme, onQuitter }: Props) {
     setRpe(6);
   };
 
-  const phaseLabel = phase === "travail" ? "TRAVAIL" : phase === "repos" ? "REPOS" : "TRANSITION";
+  const phaseLabel =
+    phase === "travail" ? t("seance.phaseWork") : phase === "repos" ? t("seance.phaseRest") : t("seance.phaseTransition");
   const phaseColor =
     phase === "travail" ? "badge-accent" : phase === "repos" ? "badge-neutral" : "badge-neutral";
 
@@ -204,7 +207,7 @@ export function TableauBord({ programme, onQuitter }: Props) {
             {programme.type} · {programme.format.replace("_", " ")} · {programme.niveau}
           </p>
         </div>
-        <button className="btn-secondary" onClick={onQuitter}>← Nouvelle séance</button>
+        <button className="btn-secondary" onClick={onQuitter}>← {t("seance.newSession")}</button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -213,7 +216,7 @@ export function TableauBord({ programme, onQuitter }: Props) {
           <div className="flex items-center justify-between">
             <span className={phaseColor}>{phaseLabel}</span>
             <span className="text-lg font-bold text-chanv-terre">
-              Round {round}/{totalRounds}
+              {t("seance.round", { n: round, total: totalRounds })}
             </span>
           </div>
 
@@ -232,7 +235,7 @@ export function TableauBord({ programme, onQuitter }: Props) {
                   {exCourant.valeur} <span className="text-4xl">{exCourant.unite}</span>
                 </span>
                 <span className="text-sm text-chanv-terre/60 uppercase tracking-widest mt-1">
-                  Appuyez sur « Suivant » une fois terminé
+                  {t("seance.pressNextWhenDone")}
                 </span>
               </>
             ) : (
@@ -244,25 +247,25 @@ export function TableauBord({ programme, onQuitter }: Props) {
           <div className="flex items-center justify-center gap-3 flex-wrap">
             {!running ? (
               <button className="btn-primary !text-lg !px-8 !py-4" onClick={demarrer}>
-                <Play className="inline mr-2" size={22} /> {ecoule === 0 ? "Démarrer" : "Reprendre"}
+                <Play className="inline mr-2" size={22} /> {ecoule === 0 ? t("seance.start") : t("seance.resume")}
               </button>
             ) : (
               <button className="btn-primary !text-lg !px-8 !py-4" onClick={() => setRunning(false)}>
-                <Pause className="inline mr-2" size={22} /> Pause
+                <Pause className="inline mr-2" size={22} /> {t("seance.pause")}
               </button>
             )}
-            <button className="btn-secondary !text-lg !px-6 !py-4" onClick={avancer} title="Avancer manuellement">
-              <SkipForward className="inline mr-2" size={22} /> Suivant
+            <button className="btn-secondary !text-lg !px-6 !py-4" onClick={avancer} title={t("seance.advanceManually")}>
+              <SkipForward className="inline mr-2" size={22} /> {t("seance.next")}
             </button>
             <button className="btn-secondary !text-lg !px-6 !py-4" onClick={reset}>
-              <RotateCcw className="inline mr-2" size={22} /> Reset
+              <RotateCcw className="inline mr-2" size={22} /> {t("seance.reset")}
             </button>
             <button
               className={auto ? "badge-accent !text-sm !px-4 !py-3" : "badge-neutral !text-sm !px-4 !py-3"}
               onClick={() => setAuto((a) => !a)}
-              title="Basculer auto / manuel"
+              title={t("seance.toggleAutoManual")}
             >
-              {auto ? "Mode AUTO" : "Mode MANUEL"}
+              {auto ? t("seance.modeAuto") : t("seance.modeManual")}
             </button>
           </div>
         </div>
@@ -271,7 +274,7 @@ export function TableauBord({ programme, onQuitter }: Props) {
         <div className="flex flex-col gap-4">
           {/* Prochain exercice */}
           <div className="section-card">
-            <span className="label">Prochain exercice</span>
+            <span className="label">{t("seance.nextExercise")}</span>
             {exSuivant ? (
               <div className="flex items-center gap-3">
                 <span className="text-3xl">🎯</span>
@@ -283,13 +286,13 @@ export function TableauBord({ programme, onQuitter }: Props) {
                 </div>
               </div>
             ) : (
-              <div className="text-chanv-terre/60 font-semibold">Dernier exercice du round 🏁</div>
+              <div className="text-chanv-terre/60 font-semibold">{t("seance.lastExerciseOfRound")} 🏁</div>
             )}
           </div>
 
           {/* Détail consigne (courante, ou prochaine en pause/transition) */}
           <div className={`section-card ${montrerProchaine ? "!border-chanv-beige" : ""}`}>
-            <span className="label">{montrerProchaine ? "Prochaine consigne" : "Consigne actuelle"}</span>
+            <span className="label">{montrerProchaine ? t("seance.nextInstruction") : t("seance.currentInstruction")}</span>
             <div className="text-lg font-bold text-chanv-terre">
               {montrerProchaine && <span className="text-chanv-terre/60">{exConsigne.nom} · </span>}
               {exConsigne.valeur} {exConsigne.unite}
@@ -317,8 +320,8 @@ export function TableauBord({ programme, onQuitter }: Props) {
       {/* Barre de progression */}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="label !mb-0">Progression de la séance</span>
-          <span className="font-bold text-chanv-terre">{progression}% · {fmt(ecoule)} écoulé</span>
+          <span className="label !mb-0">{t("seance.sessionProgress")}</span>
+          <span className="font-bold text-chanv-terre">{progression}% · {t("seance.elapsed", { time: fmt(ecoule) })}</span>
         </div>
         <div className="w-full h-4 rounded-full bg-chanv-terre/10 overflow-hidden">
           <div
@@ -330,12 +333,12 @@ export function TableauBord({ programme, onQuitter }: Props) {
 
       {/* Métriques */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricTile icon={<Flame size={28} />} label="Calories" value={Math.round(calories).toString()} />
-        <MetricTile icon={<Heart size={28} />} label="Fréq. card." value={`${fc} bpm`} />
-        <MetricTile icon={<Activity size={28} />} label="Rounds" value={`${round}/${totalRounds}`} />
+        <MetricTile icon={<Flame size={28} />} label={t("seance.calories")} value={Math.round(calories).toString()} />
+        <MetricTile icon={<Heart size={28} />} label={t("seance.heartRate")} value={`${fc} bpm`} />
+        <MetricTile icon={<Activity size={28} />} label={t("seance.rounds")} value={`${round}/${totalRounds}`} />
         <MetricTile
           icon={<Zap size={28} />}
-          label="RPE moyen"
+          label={t("seance.avgRpe")}
           value={
             <input
               type="number"
@@ -352,11 +355,11 @@ export function TableauBord({ programme, onQuitter }: Props) {
       {termine && (
         <div className="card text-center py-8">
           <div className="text-5xl mb-2">🏁</div>
-          <h3 className="text-2xl font-black text-chanv-terre">Séance terminée !</h3>
+          <h3 className="text-2xl font-black text-chanv-terre">{t("seance.sessionComplete")}</h3>
           <p className="text-chanv-terre/70 mt-1">
-            {Math.round(calories)} cal · {totalRounds} rounds · RPE {rpe}
+            {t("seance.sessionSummary", { cal: Math.round(calories), rounds: totalRounds, rpe })}
           </p>
-          <button className="btn-primary mt-4" onClick={onQuitter}>Nouvelle séance</button>
+          <button className="btn-primary mt-4" onClick={onQuitter}>{t("seance.newSession")}</button>
         </div>
       )}
     </div>

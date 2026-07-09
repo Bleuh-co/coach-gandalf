@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthProvider";
-import { ROLE_LABELS } from "@/lib/types";
+import { useT } from "@/lib/i18n";
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://chanv-apps-hub-271227085398.northamerica-northeast1.run.app";
 
@@ -14,17 +14,20 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://chanv-apps-hub-27122
  */
 export function Sidebar() {
   const { session, firebaseUser, signOut } = useAuth();
+  const t = useT();
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const isAdmin = session?.role === "admin" || session?.role === "superadmin";
 
   // Build app-specific links for the widget
   const getLinks = useCallback(() => {
     const links: Array<{ label: string; icon: string; href: string; mobileOnly?: boolean }> = [
-      { label: "Nouvelle séance", icon: "🏋️", href: "/gandalf", mobileOnly: true },
+      { label: tRef.current("sidebar.newSession"), icon: "🏋️", href: "/gandalf", mobileOnly: true },
     ];
     if (isAdmin) {
       links.push(
-        { label: "Catalogue", icon: "📹", href: "/gandalf", mobileOnly: true },
+        { label: tRef.current("sidebar.catalog"), icon: "📹", href: "/gandalf", mobileOnly: true },
       );
     }
     return links;
@@ -69,7 +72,7 @@ export function Sidebar() {
           name: session.displayName || session.email,
           email: session.email,
           photo: session.photoURL || "",
-          role: ROLE_LABELS[session.role] || session.role,
+          role: tRef.current(`role.${session.role}`),
         },
         token,
         lang: localStorage.getItem("gandalf_lang") || "fr",
@@ -101,7 +104,7 @@ export function Sidebar() {
       id="avatar-burger-btn"
       onClick={() => (window as any).GandalfWidget?.toggle()}
       className="avatar-burger-btn relative"
-      title="Menu"
+      title={t("nav.menu")}
     >
       <div className="avatar-burger-inner">
         {session.photoURL && (

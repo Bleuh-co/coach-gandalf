@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   videoUrl?: string | null;
@@ -17,6 +18,7 @@ interface Props {
  * Fallback visuel si aucune URL valide.
  */
 export function ExerciceVideo({ videoUrl, preloadVideoUrl, label, upcoming }: Props) {
+  const t = useT();
   const ref = useRef<HTMLVideoElement>(null);
   const src = videoUrl || null;
   const preloadSrc = preloadVideoUrl || null;
@@ -33,7 +35,7 @@ export function ExerciceVideo({ videoUrl, preloadVideoUrl, label, upcoming }: Pr
     <div className="relative w-full aspect-video rounded-chanv overflow-hidden bg-chanv-terre flex items-center justify-center">
       {upcoming && (
         <div className="absolute top-0 left-0 right-0 z-10 bg-chanv-beige/95 text-chanv-terre text-center py-2 px-4 font-black uppercase tracking-widest text-sm md:text-base">
-          ⚙️ À préparer — prochain exercice
+          ⚙️ {t("seance.prepareNext")}
         </div>
       )}
       {src ? (
@@ -50,9 +52,9 @@ export function ExerciceVideo({ videoUrl, preloadVideoUrl, label, upcoming }: Pr
         <div className="flex flex-col items-center justify-center text-chanv-fibre/70 gap-3">
           <span className="text-7xl">🏋️</span>
           <span className="text-2xl font-semibold uppercase tracking-widest">
-            {label || "Exercice"}
+            {label || t("seance.exercise")}
           </span>
-          <span className="text-sm opacity-60">Vidéo non disponible</span>
+          <span className="text-sm opacity-60">{t("seance.videoUnavailable")}</span>
         </div>
       )}
 

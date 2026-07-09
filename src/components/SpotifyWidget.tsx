@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useImperativeHandle, forwardRef, useCallba
 import { Music, Play, Pause, SkipForward, Speaker } from "lucide-react";
 import { toast } from "sonner";
 import { setDuckHandler } from "@/lib/audio-cues";
+import { useT } from "@/lib/i18n";
 
 /**
  * Widget Spotify (Web Playback SDK + Spotify Connect) — compte gym persistant.
@@ -35,6 +36,7 @@ declare global {
 const API = "https://api.spotify.com/v1";
 
 export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_props, ref) {
+  const t = useT();
   const [phase, setPhase] = useState<"loading" | "disconnected" | "connected">("loading");
   const [email, setEmail] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -184,9 +186,9 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
     const params = new URLSearchParams(window.location.search);
     const sp = params.get("spotify");
     if (sp) {
-      if (sp === "connected") toast.success("Spotify connecté.");
-      else if (sp === "denied") toast.error("Connexion Spotify refusée.");
-      else toast.error("Échec de la connexion Spotify.");
+      if (sp === "connected") toast.success(t("spotify.connecte"));
+      else if (sp === "denied") toast.error(t("spotify.refuse"));
+      else toast.error(t("spotify.echec"));
       params.delete("spotify");
       const q = params.toString();
       window.history.replaceState({}, "", window.location.pathname + (q ? `?${q}` : ""));
@@ -249,7 +251,7 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
       });
       player.addListener("authentication_error", () => {
         tokenRef.current = null;
-        toast.error("Session Spotify expirée — reconnecte le compte.");
+        toast.error(t("spotify.sessionExpiree"));
         setPhase("disconnected");
       });
       player.connect();
@@ -281,7 +283,7 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
   if (phase === "loading") {
     return (
       <div className="section-card flex items-center gap-2 text-chanv-terre/60">
-        <Music size={18} /> <span className="text-sm">Chargement Spotify…</span>
+        <Music size={18} /> <span className="text-sm">{t("spotify.chargement")}</span>
       </div>
     );
   }
@@ -291,10 +293,10 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
       <div className="section-card flex flex-col gap-2">
         <div className="flex items-center gap-2 text-chanv-terre/70">
           <Music size={18} />
-          <span className="label !mb-0">Musique (Spotify Premium)</span>
+          <span className="label !mb-0">{t("spotify.musique")}</span>
         </div>
         <a className="btn-secondary text-sm text-center" href="/api/spotify/login">
-          Se connecter à Spotify
+          {t("spotify.seConnecter")}
         </a>
       </div>
     );
@@ -313,15 +315,15 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
         )}
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-chanv-terre truncate">
-            {track?.name || (ready ? "Prêt à jouer" : "Connexion au lecteur…")}
+            {track?.name || (ready ? t("spotify.pret") : t("spotify.connexionLecteur"))}
           </div>
           <div className="text-xs text-chanv-terre/60 truncate">{track?.artist || email || "Spotify"}</div>
         </div>
         <div className="flex items-center gap-1">
-          <button className="btn-secondary !px-3 !py-2" onClick={toggle} title={playing ? "Pause" : "Lecture"}>
+          <button className="btn-secondary !px-3 !py-2" onClick={toggle} title={playing ? t("spotify.pause") : t("spotify.lecture")}>
             {playing ? <Pause size={18} /> : <Play size={18} />}
           </button>
-          <button className="btn-secondary !px-3 !py-2" onClick={skip} title="Suivant">
+          <button className="btn-secondary !px-3 !py-2" onClick={skip} title={t("spotify.suivant")}>
             <SkipForward size={18} />
           </button>
         </div>
@@ -333,7 +335,7 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
           defaultValue=""
           onChange={(e) => e.target.value && startPlaylist(e.target.value)}
         >
-          <option value="" disabled>Choisir une playlist…</option>
+          <option value="" disabled>{t("spotify.choisirPlaylist")}</option>
           {playlists.map((p) => (
             <option key={p.id} value={p.uri}>{p.name}</option>
           ))}
@@ -348,12 +350,12 @@ export const SpotifyWidget = forwardRef<SpotifyHandle>(function SpotifyWidget(_p
             value={activeDevice}
             onFocus={loadDevices}
             onChange={(e) => selectDevice(e.target.value)}
-            title="Haut-parleur (Spotify Connect)"
+            title={t("spotify.hautParleur")}
           >
-            {devices.length === 0 && <option value={activeDevice}>Cet écran</option>}
+            {devices.length === 0 && <option value={activeDevice}>{t("spotify.cetEcran")}</option>}
             {devices.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.id === deviceIdRef.current ? `${d.name} (écran)` : d.name}
+                {d.id === deviceIdRef.current ? t("spotify.appareilEcran", { name: d.name }) : d.name}
               </option>
             ))}
           </select>

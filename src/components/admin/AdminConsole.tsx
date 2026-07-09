@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2, Video, Save, Sparkles, Download, Search } from "lucide-react";
+import { useT } from "@/lib/i18n";
 import type { Exercice, VideoStatus } from "@/lib/types";
 
-const STATUS_LABEL: Record<VideoStatus, string> = {
-  none: "Aucune vidéo",
-  generating: "Génération en cours…",
-  ready: "Vidéo prête",
-  error: "Erreur",
+const STATUS_KEY: Record<VideoStatus, string> = {
+  none: "admin.status.none",
+  generating: "admin.status.generating",
+  ready: "admin.status.ready",
+  error: "admin.status.error",
 };
 
 const STATUS_CLASS: Record<VideoStatus, string> = {
@@ -28,6 +29,7 @@ interface EdbCandidate {
 }
 
 export function AdminConsole() {
+  const t = useT();
   const [exercices, setExercices] = useState<Exercice[]>([]);
   const [style, setStyle] = useState("");
   const [styleDirty, setStyleDirty] = useState(false);
@@ -50,11 +52,11 @@ export function AdminConsole() {
       if (exRes.ok) setExercices((await exRes.json()).exercices || []);
       if (stRes.ok) setStyle((await stRes.json()).style_template || "");
     } catch {
-      toast.error("Chargement impossible.");
+      toast.error(t("admin.loadError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -86,14 +88,14 @@ export function AdminConsole() {
             video_error: data.video_error ?? null,
           });
           stopPolling(id);
-          if (data.status === "ready") toast.success("Vidéo générée !");
-          else if (data.status === "error") toast.error(`Génération échouée : ${data.video_error || ""}`);
+          if (data.status === "ready") toast.success(t("admin.videoReady"));
+          else if (data.status === "error") toast.error(t("admin.videoFailed", { error: data.video_error || "" }));
         }
       } catch {
         /* on retentera au prochain tick */
       }
     },
-    [patchLocal, stopPolling]
+    [patchLocal, stopPolling, t]
   );
 
   const startPolling = useCallback(
@@ -128,28 +130,28 @@ export function AdminConsole() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           patchLocal(id, { video_status: "error", video_error: data.error || null });
-          toast.error(data.error || "Démarrage impossible.");
+          toast.error(data.error || t("admin.startError"));
           return;
         }
-        toast.message("Génération lancée — cela peut prendre quelques minutes.");
+        toast.message(t("admin.generationStarted"));
         startPolling(id);
       } catch {
         patchLocal(id, { video_status: "error" });
-        toast.error("Démarrage impossible.");
+        toast.error(t("admin.startError"));
       }
     },
-    [patchLocal, startPolling]
+    [patchLocal, startPolling, t]
   );
 
   const searchEdb = useCallback(async (query: string): Promise<EdbCandidate[]> => {
     const res = await fetch(`/api/admin/exercisedb/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast.error(data.error || "Recherche ExerciseDB impossible.");
+      toast.error(data.error || t("admin.edbSearchError"));
       return [];
     }
     return data.results || [];
-  }, []);
+  }, [t]);
 
   const importEdb = useCallback(
     async (id: string, exerciseId: string): Promise<boolean> => {
@@ -162,14 +164,14 @@ export function AdminConsole() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         patchLocal(id, { video_status: "error", video_error: data.error || null });
-        toast.error(data.error || "Import impossible.");
+        toast.error(data.error || t("admin.importError"));
         return false;
       }
       patchLocal(id, { video_status: "ready", video_url: data.video_url, video_source: "exercisedb" });
-      toast.success("Vidéo importée depuis ExerciseDB.");
+      toast.success(t("admin.edbImported"));
       return true;
     },
-    [patchLocal]
+    [patchLocal, t]
   );
 
   const saveExercice = useCallback(async (id: string, patch: { nom: string; equipement: string; description_prompt: string }) => {
@@ -180,26 +182,26 @@ export function AdminConsole() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      toast.error(data.error || "Mise à jour impossible.");
+      toast.error(data.error || t("admin.updateError"));
       return;
     }
-    toast.success("Exercice enregistré.");
+    toast.success(t("admin.exerciseSaved"));
     setExercices((list) => list.map((e) => (e.video_id === id ? { ...e, ...patch } : e)));
-  }, []);
+  }, [t]);
 
   const removeExercice = useCallback(
     async (id: string, nom: string) => {
-      if (!confirm(`Supprimer « ${nom} » ?`)) return;
+      if (!confirm(t("admin.confirmDelete", { nom }))) return;
       const res = await fetch(`/api/admin/exercices/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        toast.error("Suppression impossible.");
+        toast.error(t("admin.deleteError"));
         return;
       }
       stopPolling(id);
       setExercices((list) => list.filter((e) => e.video_id !== id));
-      toast.success("Exercice supprimé.");
+      toast.success(t("admin.exerciseDeleted"));
     },
-    [stopPolling]
+    [stopPolling, t]
   );
 
   const saveStyle = useCallback(async () => {
@@ -212,32 +214,32 @@ export function AdminConsole() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast.error(data.error || "Enregistrement impossible.");
+        toast.error(data.error || t("admin.saveError"));
         return;
       }
       setStyleDirty(false);
-      toast.success("Template de style enregistré.");
+      toast.success(t("admin.styleSaved"));
     } finally {
       setSavingStyle(false);
     }
-  }, [style]);
+  }, [style, t]);
 
   const runImportAll = useCallback(async () => {
-    if (!confirm("Importer tout le catalogue ExerciseDB (métadonnées) dans Firestore ? Les vidéos seront récupérées à la demande lors des générations.")) return;
+    if (!confirm(t("admin.confirmImportAll"))) return;
     setImportingAll(true);
     try {
       const res = await fetch("/api/admin/exercisedb/import-all", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error || "Import impossible.");
+        toast.error(data.error || t("admin.importError"));
         return;
       }
-      toast.success(`${data.imported} exercice(s) importé(s) depuis ExerciseDB.`);
+      toast.success(t("admin.importedFromEdbCount", { n: data.imported }));
       await load();
     } finally {
       setImportingAll(false);
     }
-  }, [load]);
+  }, [load, t]);
 
   const runSeed = useCallback(async () => {
     setSeeding(true);
@@ -245,15 +247,15 @@ export function AdminConsole() {
       const res = await fetch("/api/admin/seed", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error || "Seeding impossible.");
+        toast.error(data.error || t("admin.seedError"));
         return;
       }
-      toast.success(`${data.count} exercice(s) importé(s).`);
+      toast.success(t("admin.seededCount", { n: data.count }));
       await load();
     } finally {
       setSeeding(false);
     }
-  }, [load]);
+  }, [load, t]);
 
   const addExercice = useCallback(async (input: { nom: string; equipement: string; description_prompt: string }) => {
     const res = await fetch("/api/admin/exercices", {
@@ -263,19 +265,19 @@ export function AdminConsole() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast.error(data.error || "Création impossible.");
+      toast.error(data.error || t("admin.createError"));
       return false;
     }
     setExercices((list) => [...list, data.exercice].sort((a, b) => a.nom.localeCompare(b.nom)));
-    toast.success("Exercice créé.");
+    toast.success(t("admin.exerciseCreated"));
     return true;
-  }, []);
+  }, [t]);
 
   // --- Rendu --------------------------------------------------------------
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 text-chanv-terre/60">
-        <Loader2 className="animate-spin mr-2" /> Chargement…
+        <Loader2 className="animate-spin mr-2" /> {t("admin.loading")}
       </div>
     );
   }
@@ -285,20 +287,20 @@ export function AdminConsole() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-3xl font-black text-chanv-terre uppercase tracking-tight">
-            Administration des exercices
+            {t("admin.title")}
           </h2>
           <p className="text-sm text-chanv-terre/60 uppercase tracking-widest">
-            Catalogue & génération vidéo (Veo)
+            {t("admin.subtitle")}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button className="btn-secondary" onClick={runSeed} disabled={seeding}>
             {seeding ? <Loader2 className="inline mr-2 animate-spin" size={18} /> : <Download className="inline mr-2" size={18} />}
-            Catalogue de base
+            {t("admin.seedButton")}
           </button>
           <button className="btn-primary" onClick={runImportAll} disabled={importingAll}>
             {importingAll ? <Loader2 className="inline mr-2 animate-spin" size={18} /> : <Download className="inline mr-2" size={18} />}
-            Importer tout ExerciseDB
+            {t("admin.importAllButton")}
           </button>
         </div>
       </div>
@@ -306,14 +308,14 @@ export function AdminConsole() {
       {/* Template de style partagé */}
       <div className="card p-6 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="label !mb-0">Template de style partagé (préfixe Veo)</span>
+          <span className="label !mb-0">{t("admin.styleLabel")}</span>
           <button className="btn-primary !py-2 !px-4 !text-sm" onClick={saveStyle} disabled={savingStyle || !styleDirty}>
             {savingStyle ? <Loader2 className="inline mr-2 animate-spin" size={16} /> : <Save className="inline mr-2" size={16} />}
-            Enregistrer
+            {t("admin.save")}
           </button>
         </div>
         <p className="text-xs text-chanv-terre/60">
-          Ce texte précède la description de chaque exercice pour garantir un look homogène entre toutes les vidéos.
+          {t("admin.styleHelp")}
         </p>
         <textarea
           className="input !h-40 font-mono text-sm"
@@ -337,17 +339,17 @@ export function AdminConsole() {
         return (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="label !mb-0">{exercices.length} exercice(s)</span>
+              <span className="label !mb-0">{t("admin.exerciseCount", { n: exercices.length })}</span>
               <input
                 className="input !w-64"
-                placeholder="Filtrer par nom…"
+                placeholder={t("admin.filterPlaceholder")}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
             </div>
             {exercices.length === 0 && (
               <div className="section-card text-chanv-terre/60">
-                Aucun exercice. Importe le catalogue de base / ExerciseDB, ou ajoute-en un.
+                {t("admin.emptyList")}
               </div>
             )}
             {visible.map((ex) => (
@@ -363,7 +365,7 @@ export function AdminConsole() {
             ))}
             {matched.length > VISIBLE_CAP && (
               <p className="text-xs text-chanv-terre/50 text-center">
-                {matched.length - VISIBLE_CAP} exercice(s) supplémentaire(s) — affine le filtre pour les voir.
+                {t("admin.moreHidden", { n: matched.length - VISIBLE_CAP })}
               </p>
             )}
           </div>
@@ -380,6 +382,7 @@ function NouvelExercice({
 }: {
   onAdd: (input: { nom: string; equipement: string; description_prompt: string }) => Promise<boolean>;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [nom, setNom] = useState("");
   const [equipement, setEquipement] = useState("aucun");
@@ -388,7 +391,7 @@ function NouvelExercice({
 
   const submit = async () => {
     if (!nom.trim()) {
-      toast.error("Le nom est requis.");
+      toast.error(t("admin.nameRequired"));
       return;
     }
     setBusy(true);
@@ -405,39 +408,39 @@ function NouvelExercice({
   if (!open) {
     return (
       <button className="btn-secondary self-start" onClick={() => setOpen(true)}>
-        <Plus className="inline mr-2" size={18} /> Ajouter un exercice
+        <Plus className="inline mr-2" size={18} /> {t("admin.addExercise")}
       </button>
     );
   }
 
   return (
     <div className="card p-6 flex flex-col gap-3">
-      <span className="label !mb-0">Nouvel exercice</span>
+      <span className="label !mb-0">{t("admin.newExercise")}</span>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <span className="label">Nom</span>
-          <input className="input" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Ex : Wall Ball" />
+          <span className="label">{t("admin.nameLabel")}</span>
+          <input className="input" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t("admin.namePlaceholder")} />
         </div>
         <div>
-          <span className="label">Équipement</span>
-          <input className="input" value={equipement} onChange={(e) => setEquipement(e.target.value)} placeholder="Ex : medecine_ball" />
+          <span className="label">{t("admin.equipmentLabel")}</span>
+          <input className="input" value={equipement} onChange={(e) => setEquipement(e.target.value)} placeholder={t("admin.equipmentPlaceholder")} />
         </div>
       </div>
       <div>
-        <span className="label">Description (prompt Veo)</span>
+        <span className="label">{t("admin.descriptionLabel")}</span>
         <textarea
           className="input !h-24"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Décris précisément le mouvement à filmer…"
+          placeholder={t("admin.descriptionPlaceholder")}
         />
       </div>
       <div className="flex gap-2">
         <button className="btn-primary !py-2 !px-4 !text-sm" onClick={submit} disabled={busy}>
           {busy ? <Loader2 className="inline mr-2 animate-spin" size={16} /> : null}
-          Créer
+          {t("admin.create")}
         </button>
-        <button className="btn-secondary !py-2 !px-4 !text-sm" onClick={() => setOpen(false)}>Annuler</button>
+        <button className="btn-secondary !py-2 !px-4 !text-sm" onClick={() => setOpen(false)}>{t("admin.cancel")}</button>
       </div>
     </div>
   );
@@ -460,6 +463,7 @@ function ExerciceCard({
   onSearchEdb: (query: string) => Promise<EdbCandidate[]>;
   onImportEdb: (id: string, exerciseId: string) => Promise<boolean>;
 }) {
+  const t = useT();
   const [nom, setNom] = useState(exercice.nom);
   const [equipement, setEquipement] = useState(exercice.equipement);
   const [description, setDescription] = useState(exercice.description_prompt);
@@ -512,7 +516,7 @@ function ExerciceCard({
           )}
         </div>
         <div className="mt-2 flex items-center justify-between">
-          <span className={STATUS_CLASS[exercice.video_status]}>{STATUS_LABEL[exercice.video_status]}</span>
+          <span className={STATUS_CLASS[exercice.video_status]}>{t(STATUS_KEY[exercice.video_status])}</span>
           <code className="text-[10px] text-chanv-terre/50">{exercice.video_id}</code>
         </div>
         {exercice.video_status === "error" && exercice.video_error && (
@@ -524,28 +528,28 @@ function ExerciceCard({
       <div className="flex-1 flex flex-col gap-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <span className="label">Nom</span>
+            <span className="label">{t("admin.nameLabel")}</span>
             <input className="input" value={nom} onChange={(e) => setNom(e.target.value)} />
           </div>
           <div>
-            <span className="label">Équipement</span>
+            <span className="label">{t("admin.equipmentLabel")}</span>
             <input className="input" value={equipement} onChange={(e) => setEquipement(e.target.value)} />
           </div>
         </div>
         <div>
-          <span className="label">Description (prompt Veo)</span>
+          <span className="label">{t("admin.descriptionLabel")}</span>
           <textarea className="input !h-24" value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary !py-2 !px-4 !text-sm" onClick={save} disabled={!dirty || saving}>
             {saving ? <Loader2 className="inline mr-2 animate-spin" size={16} /> : <Save className="inline mr-2" size={16} />}
-            Enregistrer
+            {t("admin.save")}
           </button>
           <button
             className="btn-secondary !py-2 !px-4 !text-sm"
             onClick={() => onGenerate(exercice.video_id)}
             disabled={generating}
-            title={dirty ? "Enregistre d'abord tes modifications" : undefined}
+            title={dirty ? t("admin.saveFirstHint") : undefined}
           >
             {generating ? (
               <Loader2 className="inline mr-2 animate-spin" size={16} />
@@ -554,7 +558,7 @@ function ExerciceCard({
             ) : (
               <Video className="inline mr-2" size={16} />
             )}
-            {exercice.video_url ? "Régénérer la vidéo" : "Générer la vidéo"}
+            {exercice.video_url ? t("admin.regenerateVideo") : t("admin.generateVideo")}
           </button>
           <button
             className="btn-secondary !py-2 !px-4 !text-sm"
@@ -567,21 +571,21 @@ function ExerciceCard({
             className="badge-neutral !bg-red-50 !text-red-700 !text-sm !px-4 !py-2"
             onClick={() => onDelete(exercice.video_id, exercice.nom)}
           >
-            <Trash2 className="inline mr-1" size={16} /> Supprimer
+            <Trash2 className="inline mr-1" size={16} /> {t("admin.delete")}
           </button>
         </div>
 
         {/* Panneau de curation ExerciseDB */}
         {edbOpen && (
           <div className="section-card !p-4 flex flex-col gap-3">
-            <span className="label !mb-0">Importer depuis ExerciseDB</span>
+            <span className="label !mb-0">{t("admin.edbPanelTitle")}</span>
             <div className="flex gap-2">
               <input
                 className="input flex-1"
                 value={edbQuery}
                 onChange={(e) => setEdbQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && runEdbSearch()}
-                placeholder="Rechercher un mouvement (ex : burpee)"
+                placeholder={t("admin.edbSearchPlaceholder")}
               />
               <button className="btn-primary !py-2 !px-4 !text-sm" onClick={runEdbSearch} disabled={edbSearching}>
                 {edbSearching ? <Loader2 className="inline animate-spin" size={16} /> : <Search size={16} />}
@@ -589,7 +593,7 @@ function ExerciceCard({
             </div>
             {edbResults.length === 0 && !edbSearching && (
               <p className="text-xs text-chanv-terre/50">
-                ⚠️ La recherche est approximative — vérifie que le clip choisi correspond bien au mouvement.
+                {t("admin.edbApproxWarning")}
               </p>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto">
@@ -599,7 +603,7 @@ function ExerciceCard({
                   onClick={() => chooseEdb(r.exerciseId)}
                   disabled={edbImporting !== null}
                   className="card !p-2 flex flex-col items-center gap-1 text-center hover:ring-2 hover:ring-chanv-terre disabled:opacity-50"
-                  title="Choisir et importer ce clip"
+                  title={t("admin.edbChooseClip")}
                 >
                   {r.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element

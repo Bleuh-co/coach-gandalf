@@ -4,11 +4,13 @@ import { useState } from "react";
 import { EcranSelection } from "@/components/EcranSelection";
 import { TableauBord } from "@/components/TableauBord";
 import { TableauBordGroupe } from "@/components/TableauBordGroupe";
+import { useT } from "@/lib/i18n";
 import type { GenerationParams, Programme } from "@/lib/types";
 
 type Etape = "selection" | "execution";
 
 export default function GandalfPage() {
+  const t = useT();
   const [etape, setEtape] = useState<Etape>("selection");
   const [programme, setProgramme] = useState<Programme | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,13 +27,13 @@ export default function GandalfPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Erreur lors de la génération.");
+        setError(data.error || t("sel.erreurGeneration"));
         return;
       }
       setProgramme(data.programme);
       setEtape("execution");
     } catch {
-      setError("Impossible de joindre le serveur de génération.");
+      setError(t("sel.erreurServeur"));
     } finally {
       setLoading(false);
     }

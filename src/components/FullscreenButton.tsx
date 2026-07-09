@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Maximize, Minimize } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 /** Bascule l'affichage en plein écran (masque la barre du navigateur sur le kiosque). */
 export function FullscreenButton() {
+  const t = useT();
   const [isFs, setIsFs] = useState(false);
 
   useEffect(() => {
@@ -28,9 +30,9 @@ export function FullscreenButton() {
   return (
     <button
       onClick={toggle}
-      title={isFs ? "Quitter le plein écran" : "Plein écran"}
+      title={isFs ? t("nav.fullscreenExit") : t("nav.fullscreenEnter")}
       className="text-white/80 hover:text-white border border-white/30 rounded-full p-2"
-      aria-label={isFs ? "Quitter le plein écran" : "Plein écran"}
+      aria-label={isFs ? t("nav.fullscreenExit") : t("nav.fullscreenEnter")}
     >
       {isFs ? <Minimize size={18} /> : <Maximize size={18} />}
     </button>

@@ -6,6 +6,7 @@ import type { Programme, ProgrammeExercice } from "@/lib/types";
 import { SpotifyWidget, type SpotifyHandle } from "./SpotifyWidget";
 import { CountdownOverlay } from "./CountdownOverlay";
 import { playCue, announce, unlockAudio } from "@/lib/audio-cues";
+import { useT } from "@/lib/i18n";
 
 const DEFAULT_TRAVAIL = 45;
 const DEFAULT_TRANSITION = 15;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function TableauBordGroupe({ programme, onQuitter }: Props) {
+  const t = useT();
   const stations = programme.exercices;
   const N = stations.length;
   const totalRounds = Math.max(1, programme.rounds);
@@ -141,7 +143,7 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
   return (
     // Plein écran : on s'affranchit du conteneur max-w-5xl pour exploiter tout le 16:9.
     <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 sm:px-6">
-      {prep !== null && <CountdownOverlay value={prep} label="Chacun à une station !" />}
+      {prep !== null && <CountdownOverlay value={prep} label={t("seance.eachAtStation")} />}
       <div className="flex flex-col gap-3">
         {/* Bandeau compact : titre + état + chrono */}
         <div className={`card flex items-center justify-between gap-4 py-3 px-5 shrink-0 ${enTransition ? "!bg-chanv-beige" : ""}`}>
@@ -150,13 +152,13 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
             <div className="min-w-0">
               <h2 className="text-xl md:text-2xl font-black text-chanv-terre uppercase tracking-tight truncate">{programme.nom}</h2>
               <div className="text-sm font-bold text-chanv-terre/70">
-                {enTransition ? "TOURNEZ — sens horaire !" : "Travail"} · Rotation {rotation}/{N} · Tour {round}/{totalRounds}
+                {enTransition ? t("seance.rotateClockwise") : t("seance.work")} · {t("seance.rotationTour", { rot: rotation, n: N, round, total: totalRounds })}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-4 shrink-0">
             <span className="text-6xl md:text-7xl font-black tabular-nums text-chanv-terre">{fmt(restant)}</span>
-            <button className="btn-secondary !py-2 !px-4" onClick={onQuitter}>← Quitter</button>
+            <button className="btn-secondary !py-2 !px-4" onClick={onQuitter}>← {t("seance.quit")}</button>
           </div>
         </div>
 
@@ -178,7 +180,7 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
           {/* Repère central sens horaire */}
           <div className="flex items-center justify-center shrink-0">
             <span className={`badge-accent !text-sm inline-flex items-center gap-2 ${enTransition ? "animate-pulse" : ""}`}>
-              <RotateCw size={16} /> Sens horaire
+              <RotateCw size={16} /> {t("seance.clockwise")}
             </span>
           </div>
 
@@ -203,24 +205,24 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
         <div className="card flex items-center gap-3 py-3 px-5 shrink-0 flex-wrap">
           {!running ? (
             <button className="btn-primary !text-lg !px-8 !py-3" onClick={demarrer}>
-              <Play className="inline mr-2" size={22} /> {ecoule === 0 ? "Démarrer" : "Reprendre"}
+              <Play className="inline mr-2" size={22} /> {ecoule === 0 ? t("seance.start") : t("seance.resume")}
             </button>
           ) : (
             <button className="btn-primary !text-lg !px-8 !py-3" onClick={() => setRunning(false)}>
-              <Pause className="inline mr-2" size={22} /> Pause
+              <Pause className="inline mr-2" size={22} /> {t("seance.pause")}
             </button>
           )}
-          <button className="btn-secondary !px-5 !py-3" onClick={avancer} title="Forcer la rotation">
-            <SkipForward className="inline mr-2" size={20} /> Rotation
+          <button className="btn-secondary !px-5 !py-3" onClick={avancer} title={t("seance.forceRotation")}>
+            <SkipForward className="inline mr-2" size={20} /> {t("seance.rotation")}
           </button>
           <button className="btn-secondary !px-5 !py-3" onClick={reset}>
-            <RotateCcw className="inline mr-2" size={20} /> Reset
+            <RotateCcw className="inline mr-2" size={20} /> {t("seance.reset")}
           </button>
           <button
             className={auto ? "badge-accent !text-sm !px-4 !py-3" : "badge-neutral !text-sm !px-4 !py-3"}
             onClick={() => setAuto((a) => !a)}
           >
-            {auto ? "Mode AUTO" : "Mode MANUEL"}
+            {auto ? t("seance.modeAuto") : t("seance.modeManual")}
           </button>
 
           {/* Progression inline */}
@@ -239,9 +241,9 @@ export function TableauBordGroupe({ programme, onQuitter }: Props) {
         {termine && (
           <div className="card text-center py-8 shrink-0">
             <div className="text-5xl mb-2">🏁</div>
-            <h3 className="text-2xl font-black text-chanv-terre">Circuit terminé !</h3>
-            <p className="text-chanv-terre/70 mt-1">{totalRounds} tours · {N} stations</p>
-            <button className="btn-primary mt-4" onClick={onQuitter}>Nouvelle séance</button>
+            <h3 className="text-2xl font-black text-chanv-terre">{t("seance.circuitComplete")}</h3>
+            <p className="text-chanv-terre/70 mt-1">{t("seance.circuitSummary", { rounds: totalRounds, stations: N })}</p>
+            <button className="btn-primary mt-4" onClick={onQuitter}>{t("seance.newSession")}</button>
           </div>
         )}
       </div>

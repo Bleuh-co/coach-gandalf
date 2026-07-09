@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, Play, Pencil, Trash2, Users, User } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import { useT } from "@/lib/i18n";
 import { TableauBord } from "@/components/TableauBord";
 import { TableauBordGroupe } from "@/components/TableauBordGroupe";
 import type { ProgrammeModele, Programme } from "@/lib/types";
@@ -12,6 +13,7 @@ import type { ProgrammeModele, Programme } from "@/lib/types";
 export default function ProgrammesPage() {
   const router = useRouter();
   const { session } = useAuth();
+  const t = useT();
   const [list, setList] = useState<ProgrammeModele[]>([]);
   const [loading, setLoading] = useState(true);
   const [programme, setProgramme] = useState<Programme | null>(null);
@@ -34,20 +36,20 @@ export default function ProgrammesPage() {
     try {
       const res = await fetch(`/api/programmes/${id}/preparer`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(data.error || "Préparation impossible."); return; }
+      if (!res.ok) { toast.error(data.error || t("prog.prepareError")); return; }
       setProgramme(data.programme);
     } finally {
       setPreparing(null);
     }
-  }, []);
+  }, [t]);
 
   const supprimer = useCallback(async (id: string, nom: string) => {
-    if (!confirm(`Supprimer « ${nom} » ?`)) return;
+    if (!confirm(t("prog.deleteConfirm", { nom }))) return;
     const res = await fetch(`/api/programmes/${id}`, { method: "DELETE" });
-    if (!res.ok) { toast.error("Suppression impossible (réservée à l'auteur)."); return; }
-    toast.success("Programme supprimé.");
+    if (!res.ok) { toast.error(t("prog.deleteError")); return; }
+    toast.success(t("prog.deleted"));
     setList((l) => l.filter((p) => p.id !== id));
-  }, []);
+  }, [t]);
 
   // Exécution d'un programme lancé
   if (programme) {
@@ -61,18 +63,18 @@ export default function ProgrammesPage() {
     <div className="flex flex-col gap-5 pt-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-3xl font-black text-chanv-terre uppercase tracking-tight">Programmes</h2>
-          <p className="text-sm text-chanv-terre/60 uppercase tracking-widest">Bibliothèque partagée</p>
+          <h2 className="text-3xl font-black text-chanv-terre uppercase tracking-tight">{t("prog.title")}</h2>
+          <p className="text-sm text-chanv-terre/60 uppercase tracking-widest">{t("prog.subtitle")}</p>
         </div>
         <button className="btn-primary" onClick={() => router.push("/programmes/builder")}>
-          <Plus className="inline mr-2" size={18} /> Nouveau programme
+          <Plus className="inline mr-2" size={18} /> {t("prog.new")}
         </button>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-chanv-terre/60"><Loader2 className="animate-spin mr-2" /> Chargement…</div>
+        <div className="flex items-center justify-center py-16 text-chanv-terre/60"><Loader2 className="animate-spin mr-2" /> {t("prog.loading")}</div>
       ) : list.length === 0 ? (
-        <div className="section-card text-chanv-terre/60">Aucun programme. Crée le premier !</div>
+        <div className="section-card text-chanv-terre/60">{t("prog.empty")}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {list.map((p) => {
@@ -86,15 +88,15 @@ export default function ProgrammesPage() {
                     <h3 className="text-lg font-black text-chanv-terre leading-tight">{p.nom}</h3>
                   </div>
                   <p className="text-xs text-chanv-terre/60 uppercase tracking-widest mt-1">
-                    {p.type} · {p.niveau} · {p.blocs.length} bloc(s) · {nbExos} exo(s)
+                    {t("prog.meta", { type: t(`prog.type.${p.type}`), niveau: t(`prog.niveau.${p.niveau}`), blocs: p.blocs.length, exos: nbExos })}
                   </p>
                   {p.description && <p className="text-sm text-chanv-terre/70 mt-2 line-clamp-2">{p.description}</p>}
-                  <p className="text-[11px] text-chanv-terre/40 mt-2">par {p.author_name || p.author_email}</p>
+                  <p className="text-[11px] text-chanv-terre/40 mt-2">{t("prog.by", { name: p.author_name || p.author_email })}</p>
                 </div>
                 <div className="flex gap-2 mt-auto flex-wrap">
                   <button className="btn-primary !py-2 !px-4 !text-sm" onClick={() => lancer(p.id)} disabled={preparing === p.id}>
                     {preparing === p.id ? <Loader2 className="inline mr-1 animate-spin" size={16} /> : <Play className="inline mr-1" size={16} />}
-                    Lancer
+                    {t("prog.launch")}
                   </button>
                   {mien && (
                     <>
