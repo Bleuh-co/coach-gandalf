@@ -439,3 +439,10 @@ html.gandalf-dark .border-black\/10 {
 html.gandalf-dark .hover\:text-\[\#282828\]:hover {
   color: rgba(255, 255, 255, 0.92);
 }
+
+/* Fenêtres redimensionnées (desktop) : les pastilles d'embed passent à la
+   ligne — scrollbar masquée + molette = derniers onglets inaccessibles. */
+@media (hover: hover) and (pointer: fine) {
+    html.gandalf-embed #gandalf-embed-nav,
+    #gandalf-embed-nav { flex-wrap: wrap; overflow-x: visible; }
+}
