@@ -231,6 +231,12 @@ function validateProgramme(raw: any, p: GenerationParams, catalogue: Exercice[])
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  // Génération de programme (LLM + éventuel seed du catalogue) = builder =
+  // Administrateur+ (décision recette). Évite aussi qu'un membre déclenche
+  // l'import en masse du catalogue ExerciseDB + un appel LLM payant.
+  if (session.role !== "admin" && session.role !== "superadmin") {
+    return NextResponse.json({ error: "Réservé aux administrateurs (génération de programmes)." }, { status: 403 });
+  }
 
   let params: GenerationParams;
   try {

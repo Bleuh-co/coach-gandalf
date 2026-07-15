@@ -20,6 +20,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (session.role !== "admin" && session.role !== "superadmin") {
+    return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  }
   const { id } = await params;
 
   let body: any;
@@ -45,6 +48,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (session.role !== "admin" && session.role !== "superadmin") {
+    return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  }
   const { id } = await params;
   try {
     await deleteProgramme(id, session.email);

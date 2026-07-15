@@ -4,7 +4,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthProvider";
 import { useT } from "@/lib/i18n";
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://chanv-apps-hub-271227085398.northamerica-northeast1.run.app";
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
 
 /**
  * Sidebar component — delegates to the GANDALF widget (gandalf-widget.js).

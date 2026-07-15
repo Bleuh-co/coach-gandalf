@@ -8,7 +8,7 @@ import { allowedDomains } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 
 export default function LoginPage() {
-  const { session, signInWithGoogle, loading } = useAuth();
+  const { session, signInWithGoogle, loading, deniedEmail } = useAuth();
   const router = useRouter();
   const t = useT();
   const [ssoChecking, setSsoChecking] = useState(false);
@@ -21,7 +21,7 @@ export default function LoginPage() {
     const ssoToken = hash.substring(5);
     history.replaceState(null, "", window.location.pathname + window.location.search);
 
-    const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://chanv-apps-hub-271227085398.northamerica-northeast1.run.app";
+    const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
 
     setSsoChecking(true);
     (async () => {
@@ -74,12 +74,31 @@ export default function LoginPage() {
     })();
   }, [router]);
 
-  // Redirection si déjà connecté
+  // Redirection si déjà connecté — Admin+ arrive sur la séance IA (génération),
+  // les Coachs (Consulter/Gestionnaire) sur la bibliothèque de programmes.
   useEffect(() => {
     if (session) {
-      router.replace("/gandalf");
+      const isAdmin = session.role === "admin" || session.role === "superadmin";
+      router.replace(isAdmin ? "/gandalf" : "/programmes");
     }
   }, [session, router]);
+
+  // Carte de refus standard (contrat recette) : compte authentifié mais rôle
+  // « blocked » — email affiché + « Essayer un autre compte ».
+  if (deniedEmail !== null) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-4">
+        <div className="card w-full max-w-md p-10 text-center animate-[chanvFadeIn_0.5s_ease-out_both]">
+          <h1 className="text-2xl font-bold text-chanv-terre mb-4">{t("blocked.title")}</h1>
+          <p className="text-sm text-slate-500 leading-relaxed mb-3">{t("blocked.message")}</p>
+          {deniedEmail && <p className="text-xs text-slate-400 mb-6">{deniedEmail}</p>}
+          <button onClick={signInWithGoogle} className="btn-primary w-full py-4 text-base">
+            {t("blocked.retry")}
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4">

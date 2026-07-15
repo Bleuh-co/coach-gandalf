@@ -114,7 +114,7 @@ export async function resolveRoleVerbose(email: string): Promise<RoleResolution>
     userAppRoleGrade: null,
     legacyGlobalRole: null,
     source: "default",
-    role: "membre",
+    role: "blocked",
   };
 
   // 1. Bootstrap
@@ -167,8 +167,10 @@ export async function resolveRoleVerbose(email: string): Promise<RoleResolution>
     console.warn("[auth] users lookup failed", e);
   }
 
-  // 4. Default — ouvert au domaine
-  return { ...base, source: "default", role: "membre" };
+  // 4. Deny-by-default (décision recette) : sans rôle explicite (bootstrap,
+  //    user_app_roles, rôle Hub reconnu) l'utilisateur est refusé à l'auth gate.
+  //    AVANT : « membre » (Coach) ouvert à tout le domaine.
+  return { ...base, source: "default", role: "blocked" };
 }
 
 /**

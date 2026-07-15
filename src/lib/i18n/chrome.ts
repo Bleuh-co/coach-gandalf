@@ -22,6 +22,9 @@ export const chromeMessages: LangMessages = {
     "role.admin": "Administrateur",
     "role.membre": "Coach",
     "role.blocked": "Bloqué",
+    "blocked.title": "Accès non autorisé",
+    "blocked.message": "Ce compte n'a pas accès à Gandalf Coach. Contactez un administrateur pour obtenir un rôle, ou essayez un autre compte.",
+    "blocked.retry": "Essayer un autre compte",
 
     "login.title": "Coach Gandalf",
     "login.subtitle": "Système intelligent d'entraînement — Groupe Chanv",
@@ -61,6 +64,9 @@ export const chromeMessages: LangMessages = {
     "role.admin": "Administrator",
     "role.membre": "Coach",
     "role.blocked": "Blocked",
+    "blocked.title": "Access denied",
+    "blocked.message": "This account does not have access to Gandalf Coach. Contact an administrator to be granted a role, or try another account.",
+    "blocked.retry": "Try another account",
 
     "login.title": "Coach Gandalf",
     "login.subtitle": "Intelligent training system — Chanv Group",
@@ -100,6 +106,9 @@ export const chromeMessages: LangMessages = {
     "role.admin": "Administrador",
     "role.membre": "Coach",
     "role.blocked": "Bloqueado",
+    "blocked.title": "Acceso no autorizado",
+    "blocked.message": "Esta cuenta no tiene acceso a Gandalf Coach. Contacta a un administrador para obtener un rol, o prueba con otra cuenta.",
+    "blocked.retry": "Probar con otra cuenta",
 
     "login.title": "Coach Gandalf",
     "login.subtitle": "Sistema inteligente de entrenamiento — Grupo Chanv",

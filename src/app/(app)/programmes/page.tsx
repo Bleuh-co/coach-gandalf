@@ -14,6 +14,9 @@ export default function ProgrammesPage() {
   const router = useRouter();
   const { session } = useAuth();
   const t = useT();
+  // Builder (créer/éditer/supprimer un programme) = Administrateur+ ; les Coachs
+  // (Consulter/Gestionnaire) lancent les programmes existants mais n'éditent pas.
+  const isAdmin = session?.role === "admin" || session?.role === "superadmin";
   const [list, setList] = useState<ProgrammeModele[]>([]);
   const [loading, setLoading] = useState(true);
   const [programme, setProgramme] = useState<Programme | null>(null);
@@ -66,9 +69,11 @@ export default function ProgrammesPage() {
           <h2 className="text-3xl font-black text-chanv-terre uppercase tracking-tight">{t("prog.title")}</h2>
           <p className="text-sm text-chanv-terre/60 uppercase tracking-widest">{t("prog.subtitle")}</p>
         </div>
-        <button className="btn-primary" onClick={() => router.push("/programmes/builder")}>
-          <Plus className="inline mr-2" size={18} /> {t("prog.new")}
-        </button>
+        {isAdmin && (
+          <button className="btn-primary" onClick={() => router.push("/programmes/builder")}>
+            <Plus className="inline mr-2" size={18} /> {t("prog.new")}
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -98,7 +103,7 @@ export default function ProgrammesPage() {
                     {preparing === p.id ? <Loader2 className="inline mr-1 animate-spin" size={16} /> : <Play className="inline mr-1" size={16} />}
                     {t("prog.launch")}
                   </button>
-                  {mien && (
+                  {isAdmin && mien && (
                     <>
                       <button className="btn-secondary !py-2 !px-3 !text-sm" onClick={() => router.push(`/programmes/builder/${p.id}`)}>
                         <Pencil className="inline" size={16} />

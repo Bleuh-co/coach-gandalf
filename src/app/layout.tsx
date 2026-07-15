@@ -6,11 +6,12 @@ import { headers } from "next/headers";
 import { GandalfProvider } from "@bleuh-co/gandalf-sdk-next/client";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
+import { StandaloneWidgets } from "@/components/StandaloneWidgets";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
-const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://chanv-apps-hub-271227085398.northamerica-northeast1.run.app";
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com";
 
 export const metadata: Metadata = {
   title: "Coach Gandalf — Chanv",
@@ -52,26 +53,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Toaster richColors position="top-right" />
           </AuthProvider>
         </GandalfProvider>
-        {/* Widgets du Hub — UNIQUEMENT en standalone : en mode embarqué, le
-            shell Gandalf fournit déjà chatbot/feedback/sidebar (aucune
-            fonction redondante dans l'iframe). */}
-        {!embedded && (
-          <>
-            <Script id="chanv-auth-bridge" strategy="beforeInteractive">{`
-              window.getAuthToken = async function() {
-                try {
-                  const { getAuth } = await import('firebase/auth');
-                  const auth = getAuth();
-                  if (auth.currentUser) return await auth.currentUser.getIdToken();
-                } catch(e) {}
-                return null;
-              };
-            `}</Script>
-            <Script src={`${HUB_URL}/widgets/chatbot.js`} data-hub={HUB_URL} strategy="lazyOnload" />
-            <Script src={`${HUB_URL}/widgets/feedback.js`} data-hub={HUB_URL} strategy="lazyOnload" />
-            <Script src={`${HUB_URL}/js/gandalf-widget.js`} data-hub={HUB_URL} strategy="lazyOnload" />
-          </>
-        )}
+        {/* Pont d'auth pour les widgets Hub (token Firebase courant). */}
+        <Script id="chanv-auth-bridge" strategy="beforeInteractive">{`
+          window.getAuthToken = async function() {
+            try {
+              const { getAuth } = await import('firebase/auth');
+              const auth = getAuth();
+              if (auth.currentUser) return await auth.currentUser.getIdToken();
+            } catch(e) {}
+            return null;
+          };
+        `}</Script>
+        {/* Widgets flottants du hub — STANDALONE seulement. AVANT : gardés par le
+            flag serveur `!embedded` (dérivé du cookie gandalf_embed collant) qui
+            contaminait le standalone. Le composant client vérifie le VRAI framing
+            (window.self !== window.top). */}
+        <StandaloneWidgets hubUrl={HUB_URL} scripts={["/widgets/chatbot.js", "/widgets/feedback.js", "/js/gandalf-widget.js"]} />
         {/* Service worker — rend la PWA installable */}
         <Script id="register-sw" strategy="afterInteractive">{`
           if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {

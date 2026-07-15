@@ -330,6 +330,18 @@ h4 {
   }
 }
 
+/* --- Widgets flottants du hub masqués pendant une séance PLEIN ÉCRAN ---
+   FullscreenButton met documentElement en plein écran ; les widgets injectés
+   (chatbot/feedback/drawer Gandalf, position:fixed) passeraient par-dessus la
+   vidéo/le décompte. On les masque tant qu'on est en plein écran. */
+:fullscreen [id^="chanv-chatbot"],
+:fullscreen [id^="chanv-feedback"],
+:fullscreen [class*="chanv-chatbot"],
+:fullscreen [class*="chanv-feedback"],
+:fullscreen [class*="gandalf-widget"] {
+  display: none !important;
+}
+
 /* ============================================================
    MODE SOMBRE GANDALF — html.gandalf-dark (posé par le SDK/hub)
    APPEND-ONLY. Palette dark du hub : fond #201d19, panneaux #2b2823,
@@ -382,6 +394,18 @@ html.gandalf-dark .label {
 }
 html.gandalf-dark .text-chanv-terre {
   color: #ddcba4;
+}
+/* Texte secondaire (sous-titres/labels/meta) — les variantes d'opacité de
+   text-chanv-terre compilent en noir quasi invisible sur fond sombre. */
+html.gandalf-dark .text-chanv-terre\/40,
+html.gandalf-dark .text-chanv-terre\/50,
+html.gandalf-dark .text-chanv-terre\/60,
+html.gandalf-dark .text-chanv-terre\/70 {
+  color: rgba(255, 255, 255, 0.6);
+}
+html.gandalf-dark .text-slate-400,
+html.gandalf-dark .text-slate-500 {
+  color: rgba(255, 255, 255, 0.55);
 }
 html.gandalf-dark .section-num {
   background: rgba(221, 203, 164, 0.15);

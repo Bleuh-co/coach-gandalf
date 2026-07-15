@@ -28,6 +28,10 @@ function stripFences(t: string): string {
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  // Assistant IA de rédaction = builder = Administrateur+ (décision recette).
+  if (session.role !== "admin" && session.role !== "superadmin") {
+    return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY non configurée." }, { status: 503 });

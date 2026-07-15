@@ -10,7 +10,7 @@ substitutions:
   _IMAGE: us-east1-docker.pkg.dev/antigravity-20260107/cloud-run-source-deploy/coach-gandalf
   # ID Firestore de l'app dans la collection `apps` du hub (prod) — à renseigner
   # au moment de créer le trigger, ou laisser vide (fallback matcher par nom).
-  _COACHGANDA_APP_ID: ""
+  _COACHGANDA_APP_ID: "iNv9JSBZCVoRZihKaapn"
   _APP_PUBLIC_URL: https://coach-gandalf-271227085398.us-east1.run.app
 
 steps:
@@ -33,7 +33,7 @@ steps:
           --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=271227085398 \
           --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=1:271227085398:web:dd67b650261fbb28d551f7 \
           --build-arg NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=chanv.com,lafeuilleverte.ca,bleuh.co,maisondherbes.com \
-          --build-arg NEXT_PUBLIC_HUB_URL=https://chanv-apps-hub-271227085398.northamerica-northeast1.run.app \
+          --build-arg NEXT_PUBLIC_HUB_URL=https://gandalf.chanv.com \
           -t "${_IMAGE}:${_TAG}" .
         rm -f /workspace/gh_token
 
@@ -56,7 +56,7 @@ steps:
       - --port=8080
       - --memory=1Gi
       - --cpu=1
-      - --update-env-vars=^;^NEXT_PUBLIC_FIREBASE_PROJECT_ID=antigravity-20260107;NEXT_PUBLIC_HUB_URL=https://chanv-apps-hub-271227085398.northamerica-northeast1.run.app;NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=chanv.com,lafeuilleverte.ca,bleuh.co,maisondherbes.com;COACHGANDA_APP_ID=${_COACHGANDA_APP_ID};APP_PUBLIC_URL=${_APP_PUBLIC_URL}
+      - --update-env-vars=^;^NEXT_PUBLIC_FIREBASE_PROJECT_ID=antigravity-20260107;NEXT_PUBLIC_HUB_URL=https://gandalf.chanv.com;HUB_URL=https://gandalf.chanv.com;NEXT_PUBLIC_ALLOWED_EMAIL_DOMAINS=chanv.com,lafeuilleverte.ca,bleuh.co,maisondherbes.com;COACHGANDA_APP_ID=${_COACHGANDA_APP_ID};APP_PUBLIC_URL=${_APP_PUBLIC_URL}
       - --set-secrets=FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,EXERCISEDB_API_KEY=EXERCISEDB_API_KEY:latest,SPOTIFY_CLIENT_ID=SPOTIFY_CLIENT_ID:latest,SPOTIFY_CLIENT_SECRET=SPOTIFY_CLIENT_SECRET:latest,ELEVENLABS_API_KEY=ELEVENLABS_API_KEY:latest
 
 images:

@@ -13,10 +13,13 @@ export async function GET() {
   return NextResponse.json({ programmes });
 }
 
-/** POST — crée un programme (auteur = session). */
+/** POST — crée un programme (builder = Administrateur+, décision recette). */
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (session.role !== "admin" && session.role !== "superadmin") {
+    return NextResponse.json({ error: "Réservé aux administrateurs (création de programmes)." }, { status: 403 });
+  }
 
   let body: any;
   try {

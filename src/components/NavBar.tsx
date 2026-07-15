@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,7 +23,8 @@ interface NavLink {
 // « masqué ≠ perdu » : la même liste (liens role-gated inclus) alimente la
 // barre standalone ET la nav d'embed — aucun lien ne disparaît en mode embarqué.
 const LINKS: NavLink[] = [
-  { href: "/gandalf", labelKey: "nav.seanceIA", icon: Dumbbell },
+  // Séance IA (génération) = builder → Administrateur+ (décision recette).
+  { href: "/gandalf", labelKey: "nav.seanceIA", icon: Dumbbell, roles: ["admin", "superadmin"] },
   { href: "/programmes", labelKey: "nav.programmes", icon: Library },
   { href: "/admin", labelKey: "nav.admin", icon: Settings2, roles: ["superadmin"] },
 ];
@@ -32,11 +34,21 @@ export function NavBar() {
   const { embedded } = useGandalf();
   const pathname = usePathname();
   const t = useT();
+
+  // Le flag `embedded` du SDK dérive du cookie gandalf_embed (collant) : après
+  // une visite embed il reste vrai en standalone → chrome d'embed sans burger.
+  // On corrige avec le VRAI framing (window.self !== window.top), en partant de
+  // la valeur SSR pour éviter un mismatch d'hydratation.
+  const [reallyEmbedded, setReallyEmbedded] = useState(embedded);
+  useEffect(() => {
+    setReallyEmbedded(window.self !== window.top);
+  }, []);
+
   if (!session) return null;
 
   const visible = LINKS.filter((l) => !l.roles || l.roles.includes(session.role));
 
-  if (embedded) {
+  if (reallyEmbedded) {
     // Contrat d'embed, morceau 3 — nav interne d'embed (#gandalf-embed-nav),
     // modèle xero/Gestion-Parc-It : barre claire sticky sur fond parchemin,
     // pastilles blanches arrondies, pastille active or. Le hub fournit
@@ -76,7 +88,7 @@ export function NavBar() {
     <header className="chanv-header">
       <div className="mx-auto max-w-5xl flex items-center gap-6 flex-nowrap relative flex-col md:flex-row text-center md:text-left">
         <a
-          href={process.env.NEXT_PUBLIC_HUB_URL || "https://chanv-apps-hub-271227085398.northamerica-northeast1.run.app/"}
+          href={process.env.NEXT_PUBLIC_HUB_URL || "https://gandalf.chanv.com"}
           className="chanv-logo-wrapper flex items-center"
           title={t("nav.backToHub")}
         >
