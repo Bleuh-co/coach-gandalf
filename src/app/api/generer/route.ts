@@ -13,6 +13,32 @@ export const maxDuration = 120;
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-6";
 
+// Throttle en mémoire PAR UTILISATEUR — la génération est un appel LLM coûteux.
+// Empêche un utilisateur de lancer des dizaines de générations à la minute.
+// Fenêtre glissante ; par instance Cloud Run (maxScale borné) → suffisant.
+const GEN_WINDOW_MS = 60_000;
+const GEN_MAX_PER_WINDOW = 8;
+const genHits = new Map<string, number[]>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of genHits) {
+    const fresh = v.filter((t) => now - t < GEN_WINDOW_MS);
+    if (fresh.length) genHits.set(k, fresh);
+    else genHits.delete(k);
+  }
+}, 5 * GEN_WINDOW_MS).unref?.();
+
+function throttleGeneration(email: string): { ok: boolean; retryAfter: number } {
+  const now = Date.now();
+  const arr = (genHits.get(email) || []).filter((t) => now - t < GEN_WINDOW_MS);
+  if (arr.length >= GEN_MAX_PER_WINDOW) {
+    return { ok: false, retryAfter: Math.ceil((GEN_WINDOW_MS - (now - arr[0])) / 1000) };
+  }
+  arr.push(now);
+  genHits.set(email, arr);
+  return { ok: true, retryAfter: 0 };
+}
+
 // Équipement « fonctionnel » pertinent pour Hyrox / CrossFit / HIIT / force.
 // Sert à réduire le catalogue (potentiellement 1000+ exercices) à un sous-ensemble
 // raisonnable injecté dans le prompt.
@@ -231,11 +257,14 @@ function validateProgramme(raw: any, p: GenerationParams, catalogue: Exercice[])
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  // Génération de programme (LLM + éventuel seed du catalogue) = builder =
-  // Administrateur+ (décision recette). Évite aussi qu'un membre déclenche
-  // l'import en masse du catalogue ExerciseDB + un appel LLM payant.
-  if (session.role !== "admin" && session.role !== "superadmin") {
-    return NextResponse.json({ error: "Réservé aux administrateurs (génération de programmes)." }, { status: 403 });
+  // Séance IA accessible dès Consulter (« Coach »). Throttle par utilisateur
+  // pour éviter l'abus / le coût LLM (pas de rafale de générations).
+  const gate = throttleGeneration(session.email);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: "Trop de générations en peu de temps. Réessayez dans un instant." },
+      { status: 429, headers: { "Retry-After": String(gate.retryAfter) } }
+    );
   }
 
   let params: GenerationParams;

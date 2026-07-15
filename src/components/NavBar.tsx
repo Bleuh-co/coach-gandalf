@@ -23,8 +23,9 @@ interface NavLink {
 // « masqué ≠ perdu » : la même liste (liens role-gated inclus) alimente la
 // barre standalone ET la nav d'embed — aucun lien ne disparaît en mode embarqué.
 const LINKS: NavLink[] = [
-  // Séance IA (génération) = builder → Administrateur+ (décision recette).
-  { href: "/gandalf", labelKey: "nav.seanceIA", icon: Dumbbell, roles: ["admin", "superadmin"] },
+  // Séance IA (génération à la volée + exécution) = accessible dès Consulter
+  // (un « Coach » lance des séances). Throttlée par utilisateur côté /api/generer.
+  { href: "/gandalf", labelKey: "nav.seanceIA", icon: Dumbbell },
   { href: "/programmes", labelKey: "nav.programmes", icon: Library },
   { href: "/admin", labelKey: "nav.admin", icon: Settings2, roles: ["superadmin"] },
 ];

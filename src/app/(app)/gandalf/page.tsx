@@ -1,15 +1,58 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth-server";
-import GandalfClient from "./GandalfClient";
+"use client";
 
-// Séance IA (génération de programme via LLM) = builder = Administrateur+
-// (décision recette). Les Coachs (Consulter/Gestionnaire) lancent les
-// programmes existants via /programmes ; s'ils tentent l'URL directe ici, ils
-// sont redirigés vers la bibliothèque. Les routes /api/generer sont déjà gardées.
-export default async function GandalfPage() {
-  const s = await getSession();
-  if (!s || (s.role !== "admin" && s.role !== "superadmin")) {
-    redirect("/programmes");
-  }
-  return <GandalfClient />;
+import { useState } from "react";
+import { EcranSelection } from "@/components/EcranSelection";
+import { TableauBord } from "@/components/TableauBord";
+import { TableauBordGroupe } from "@/components/TableauBordGroupe";
+import { useT } from "@/lib/i18n";
+import type { GenerationParams, Programme } from "@/lib/types";
+
+type Etape = "selection" | "execution";
+
+export default function GandalfPage() {
+  const t = useT();
+  const [etape, setEtape] = useState<Etape>("selection");
+  const [programme, setProgramme] = useState<Programme | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const generer = async (params: GenerationParams) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/generer", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || t("sel.erreurGeneration"));
+        return;
+      }
+      setProgramme(data.programme);
+      setEtape("execution");
+    } catch {
+      setError(t("sel.erreurServeur"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const quitter = () => {
+    setProgramme(null);
+    setEtape("selection");
+  };
+
+  return (
+    <div className="py-2">
+      {etape === "selection" || !programme ? (
+        <EcranSelection onGenerer={generer} loading={loading} error={error} />
+      ) : programme.mode === "groupe" ? (
+        <TableauBordGroupe programme={programme} onQuitter={quitter} />
+      ) : (
+        <TableauBord programme={programme} onQuitter={quitter} />
+      )}
+    </div>
+  );
 }

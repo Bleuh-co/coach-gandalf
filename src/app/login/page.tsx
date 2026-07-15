@@ -74,12 +74,10 @@ export default function LoginPage() {
     })();
   }, [router]);
 
-  // Redirection si déjà connecté — Admin+ arrive sur la séance IA (génération),
-  // les Coachs (Consulter/Gestionnaire) sur la bibliothèque de programmes.
+  // Redirection si déjà connecté
   useEffect(() => {
     if (session) {
-      const isAdmin = session.role === "admin" || session.role === "superadmin";
-      router.replace(isAdmin ? "/gandalf" : "/programmes");
+      router.replace("/gandalf");
     }
   }, [session, router]);
 
