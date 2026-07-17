@@ -1,8 +1,7 @@
 import "server-only";
 import type { AdminLike } from "@bleuh-co/gandalf-sdk-next/server";
 import { adminAuth, adminDb } from "./firebase-admin";
-import { isEmailDomainAllowed } from "./utils";
-import { resolveRole } from "./auth-server";
+import { resolveRole, isEmailAllowed } from "./auth-server";
 
 /**
  * Adaptateur firebase-admin → contrat AdminLike du SDK Gandalf.
@@ -22,6 +21,6 @@ export const gandalfAdmin: AdminLike = {
  * "blocked" est listé dans noAccessRoles → refus (deny-by-default).
  */
 export const coachGandalfRoleMapper = async (email: string): Promise<string> => {
-  if (!isEmailDomainAllowed(email)) return "blocked";
+  if (!(await isEmailAllowed(email))) return "blocked";
   return resolveRole(email);
 };

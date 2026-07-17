@@ -5,8 +5,8 @@ import {
   createSessionCookie,
   resolveRole,
   sessionCookieOptions,
+  isEmailAllowed,
 } from "@/lib/auth-server";
-import { isEmailDomainAllowed } from "@/lib/utils";
 
 export const runtime = "nodejs";
 
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const email = decoded.email;
-  if (!isEmailDomainAllowed(email)) {
+  if (!(await isEmailAllowed(email))) {
     return NextResponse.json({ valid: false, error: "Domaine email non autorisé" });
   }
 
